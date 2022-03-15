@@ -1,5 +1,5 @@
 import XCTest
-import pswm
+import cithare
 import class Foundation.Bundle
 
 final class pswmTests: XCTestCase {
