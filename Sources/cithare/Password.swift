@@ -20,6 +20,32 @@ func readAllFile(atPath : String) -> [UInt8]? {
     return buffer
 }
 
+func copyString(_ ptr : UnsafeMutablePointer<CChar>) -> String {
+    var s = ""
+    var offset = 0
+    var offsetChar = ptr.advanced(by: offset).pointee;
+    let nullTerminate : Character = "\0"
+    while offset != (nullTerminate.asciiValue!) {
+        s.append(String.init(format: "%c", offsetChar))
+        offset += 1
+        offsetChar = ptr.advanced(by: offset).pointee
+    }
+    return s
+}
+
+
+@available(macOS 10.15, *)
+func confirmPassword(_ firstMessage : String, _ confirmMessage : String) -> Result<String, Pswn.AddPwd.PwdError> {
+    let pass_opt  = getpass(firstMessage)
+    guard let pass1 = pass_opt else { return .failure(Pswn.AddPwd.PwdError.nullPasswordPointer) }
+    let p1 = String.init(cString: pass1)
+    let pass_opt2 = getpass(confirmMessage)
+    guard let pass2 = pass_opt2 else { return .failure(Pswn.AddPwd.PwdError.nullPasswordPointer) }
+    let p2 = String(cString: pass2)
+    if (p1 != p2) { return  .failure(Pswn.AddPwd.PwdError.unmatchPassword) }
+    return .success(p1)
+}
+
 struct Password : Codable {
     var website : String
     var username : String?
@@ -71,7 +97,7 @@ struct PasswordManagerEncryption {
     public func encrypt(passwordManager : PasswordManager, masterKey : String, atPath file : String) -> Result<(), EncryptionError> {
         let asciiCharRange = (33...126)
         let key = SymmetricKey.init(data: SHA256.hash(data: masterKey.data(using: .utf8)!))
-        print(key.withUnsafeBytes { $0.map { $0 } }  )
+//        print(key.withUnsafeBytes { $0.map { $0 } }  )
         let nonce = AES.GCM.Nonce.init()
         let tagStr = String.init( (0..<16).map { _ in
             Character.init(Unicode.Scalar.init(asciiCharRange.randomElement()!)!)

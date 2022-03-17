@@ -64,13 +64,15 @@ extension Pswn {
         }
         
         func run() throws {
-            let pass_opt  = getpass("Enter a password : ")
-            guard let pass1 = pass_opt else { throw Self.PwdError.nullPasswordPointer }
-            let pass_opt2 = getpass("Confirm password :  ")
-            guard let pass2 = pass_opt2 else { throw Self.PwdError.nullPasswordPointer }
-            let p1 = String.init(cString: pass1)
-            let p2 = String(cString: pass2)
-            if (p1 != p2) { throw Self.PwdError.unmatchPassword }
+            
+            let result = confirmPassword("Enter a password : ", "Confirm password :  ")
+            switch result {
+            case .failure(let error):
+                throw error
+            default:
+                break
+            }
+            let p1 = try! result.get()
             let masterKeywordOpt = getpass("Enter the master password : ")
             guard let masterKey = masterKeywordOpt else { throw Self.PwdError.nullPasswordPointer }
             let passwordEncrypter = PasswordManagerEncryption.init()
@@ -105,12 +107,17 @@ extension Pswn {
                     return "Unable to create the app dir at path :"
                 case .unableToCreateFile:
                     return "Unable to create app file"
+                case .alreadyInitialized:
+                    return "Cithare is already initialized"
                 }
             }
             case unableToCreateDirectory
             case unableToCreateFile
+            case alreadyInitialized
         }
         
+        @Flag(name: .shortAndLong, help : "Force the initialization")
+        var force = false
         
         func run() throws {
             let fileManager = FileManager.default
@@ -129,12 +136,33 @@ extension Pswn {
                 }
             }
             home.appendPathComponent(PASSFILE)
+            if (!self.force){
+                if fileManager.fileExists(atPath: home.path) {
+                    throw Self.InitError.alreadyInitialized
+                }
+            }
             let isCreated = fileManager.createFile(atPath: home.path, contents: nil, attributes: nil)
             if (!isCreated) {
                 throw Self.InitError.unableToCreateFile
             }else {
-                print("Pswm initialized")
-                return
+                let confirmPass = confirmPassword("Choose the master password : ", "Confirm the master password : ")
+                switch confirmPass {
+                case .failure(let error):
+                    throw error
+                default:
+                    break
+                }
+                let master = try! confirmPass.get()
+                let passwordManager = PasswordManager.init()
+                let passwordManagerEncryption =  PasswordManagerEncryption.init()
+                switch passwordManagerEncryption.encrypt(passwordManager: passwordManager, masterKey: master, atPath: home.path){
+                case .failure(let error):
+                    throw error
+                case .success(_):
+                    print("Cithare Initiliazed\n")
+                    return
+                }
+                
             }
         }
     }
@@ -165,10 +193,9 @@ if #available(macOS 10.15, *) {
 //            print("\(error)")
 //        case .success(let passwordManager):
 //            print("\(passwordManager)")
-//
 //        }
 //    }
 //
+//    addPassword()
 //    decrypt()
-//
 //}
