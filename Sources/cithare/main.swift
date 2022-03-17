@@ -18,7 +18,7 @@ var appFileFullPath : String {
 
 @available(macOS 10.15, *)
 struct Pswn : ParsableCommand {
-    static var configuration = CommandConfiguration( subcommands: [Pswn.AddPwd.self, Pswn.Init.self] )
+    static var configuration = CommandConfiguration( subcommands: [Pswn.Add.self, Pswn.Init.self] )
     
 }
 
@@ -26,10 +26,10 @@ struct Pswn : ParsableCommand {
 @available(macOS 10.15, *)
 extension Pswn {
     
-    struct AddPwd : ParsableCommand {
+    struct Add : ParsableCommand {
         
         static var configuration: CommandConfiguration = CommandConfiguration(abstract: "Add a new password into the password Manager")
-        enum PwdError : Error, CustomStringConvertible {
+        enum AddError : Error, CustomStringConvertible {
             var description: String {
                 switch self {
                 case .nullPasswordPointer:
@@ -38,14 +38,21 @@ extension Pswn {
                     return "Passwords don't match"
                 case .wrongMasterPassword:
                     return "Wrong master password"
+                case .alreadyPassforWebsite(let link):
+                    return "A password already exists for this site : \(link)"
                 }
             }
             
             case nullPasswordPointer
             case unmatchPassword
             case wrongMasterPassword
+            case alreadyPassforWebsite(String)
         }
-        @Option(name: .long)
+        
+        @Flag(name : .shortAndLong, help: "Use in order to replace a password")
+        var replace = false
+        
+        @Option(name: .shortAndLong)
         var webSite : String
         
         @Option(name : .shortAndLong)
@@ -55,8 +62,8 @@ extension Pswn {
         var mail : String?
         
         func validate() throws {
-            if self.username == nil && self.mail == nil {
-                throw ValidationError("at least --username or --mail should be provided")
+            if self.username == nil && self.mail == nil && !self.replace {
+                throw ValidationError("at least --username or --mail should be provided to add")
             }
             if !FileManager.default.fileExists(atPath: appFileFullPath) {
                 throw ValidationError("app file not found.\nYou should run 'init' command")
@@ -74,7 +81,7 @@ extension Pswn {
             }
             let p1 = try! result.get()
             let masterKeywordOpt = getpass("Enter the master password : ")
-            guard let masterKey = masterKeywordOpt else { throw Self.PwdError.nullPasswordPointer }
+            guard let masterKey = masterKeywordOpt else { throw Self.AddError.nullPasswordPointer }
             let passwordEncrypter = PasswordManagerEncryption.init()
             let sMasterkey = String(cString: masterKey)
             switch passwordEncrypter.decrypt(masterKey: sMasterkey, atPath: appFileFullPath) {
@@ -82,8 +89,20 @@ extension Pswn {
                 print("\(error)")
                 return
             case .success(let passwordManager):
-                let password = Password.init(website: self.webSite, username: self.username, mail: self.mail, password: p1)
-                passwordManager.addPassword(password: password)
+                
+                if (self.replace){
+                    switch passwordManager.replaceOrAdd(website: self.webSite, password: p1, username: self.username, mail: self.mail){
+                    case .replaced:
+                        print("Password replaced")
+                    case .added:
+                        print("Password added")
+                    }
+                    return
+                }else {
+                    let password = Password.init(website: self.webSite, username: self.username, mail: self.mail, password: p1)
+                    passwordManager.addPassword(password: password)
+                }
+                
                 switch passwordEncrypter.encrypt(passwordManager: passwordManager, masterKey: sMasterkey, atPath: appFileFullPath) {
                 case .failure(let error):
                     print("\(error)")

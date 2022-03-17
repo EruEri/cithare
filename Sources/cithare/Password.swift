@@ -35,22 +35,29 @@ func copyString(_ ptr : UnsafeMutablePointer<CChar>) -> String {
 
 
 @available(macOS 10.15, *)
-func confirmPassword(_ firstMessage : String, _ confirmMessage : String) -> Result<String, Pswn.AddPwd.PwdError> {
+func confirmPassword(_ firstMessage : String, _ confirmMessage : String) -> Result<String, Pswn.Add.AddError> {
     let pass_opt  = getpass(firstMessage)
-    guard let pass1 = pass_opt else { return .failure(Pswn.AddPwd.PwdError.nullPasswordPointer) }
+    guard let pass1 = pass_opt else { return .failure(Pswn.Add.AddError.nullPasswordPointer) }
     let p1 = String.init(cString: pass1)
     let pass_opt2 = getpass(confirmMessage)
-    guard let pass2 = pass_opt2 else { return .failure(Pswn.AddPwd.PwdError.nullPasswordPointer) }
+    guard let pass2 = pass_opt2 else { return .failure(Pswn.Add.AddError.nullPasswordPointer) }
     let p2 = String(cString: pass2)
-    if (p1 != p2) { return  .failure(Pswn.AddPwd.PwdError.unmatchPassword) }
+    if (p1 != p2) { return  .failure(Pswn.Add.AddError.unmatchPassword) }
     return .success(p1)
 }
 
-struct Password : Codable {
+class Password : Codable {
     var website : String
     var username : String?
     var mail : String?
     var password : String
+    
+    init(website : String, username : String?, mail : String?, password : String) {
+        self.website = website
+        self.username = username
+        self.mail = mail
+        self.password = password
+    }
 }
 
 enum EncryptionError : Error {
@@ -66,11 +73,19 @@ enum DecryptionError : Error {
     case unableToDecryptPasswordManager
 }
 
+enum ChangeStatus {
+    case added
+    case replaced
+}
+
 
 
 class PasswordManager : Codable {
     var passwords : [Password]
     
+    var count : Int {
+        self.passwords.count
+    }
     
     init(){
         self.passwords = .init()
@@ -79,6 +94,31 @@ class PasswordManager : Codable {
     
     func addPassword(password : Password) {
         self.passwords.append(password)
+    }
+    
+    
+    ///
+    /// - Parameter website :website name
+    /// - Returns : The number of deleted password
+    func remove(website: String) -> Int {
+        let count = self.count
+        self.passwords.removeAll { $0.website == website }
+        return count - self.count
+    }
+    
+    ///
+    ///
+    /// - Returns : If the password is replace
+    func replaceOrAdd(website : String, password : String, username : String? = nil, mail : String? = nil) -> ChangeStatus {
+        if let pass = (self.passwords.first { pwd in pwd.website == website }) {
+            pass.password = password
+            pass.username = username ?? pass.username
+            pass.mail = mail ?? pass.mail
+            return .replaced
+        }else {
+            self.addPassword(password: Password.init(website: website, username: username, mail: mail, password: password))
+            return .added
+        }
     }
     
     fileprivate func toData() -> Data {
