@@ -214,6 +214,7 @@ extension Cithare {
                 }
                 print(passwordManager.description)
                 sleep(UInt32(self.displayTime))
+                print("\u{001B}[2J")
                 return
             }
         }
