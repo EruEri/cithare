@@ -20,6 +20,41 @@ var appFileFullPath : String {
 struct Cithare : ParsableCommand {
     static var configuration = CommandConfiguration( subcommands: [Cithare.Init.self, Cithare.Add.self, Cithare.Show.self] )
     
+    @Flag()
+    var changeMasterPassword = false
+    
+    func run() throws {
+        
+        if !changeMasterPassword {
+            return
+        }
+        
+        let pass_opt = getpass("Enter the master password : ")
+        guard let pass1 = pass_opt else { throw (Cithare.Add.AddError.nullPasswordPointer) }
+        let passWord = String(cString: pass1)
+        let result = confirmPassword("Enter the new master password : ", "Confirm the new master password : ")
+        switch result {
+        case .failure(let error):
+            throw error
+        default:
+            break
+        }
+        
+        let new_pass = try! result.get()
+        let passEncryp = PasswordManagerEncryption.init()
+        switch passEncryp.decrypt(masterKey: passWord, atPath: appFileFullPath) {
+        case .failure(let error):
+            throw error
+        case .success(let password):
+            switch passEncryp.encrypt(passwordManager: password, masterKey: new_pass, atPath: appFileFullPath) {
+            case .failure(let error):
+                throw error
+            case .success(_):
+                print("Master password sucessfully changed")
+            }
+        }
+    }
+    
 }
 
 
