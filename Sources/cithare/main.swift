@@ -17,14 +17,14 @@ var appFileFullPath : String {
 }
 
 @available(macOS 10.15, *)
-struct Pswn : ParsableCommand {
-    static var configuration = CommandConfiguration( subcommands: [Pswn.Add.self, Pswn.Init.self] )
+struct Cithare : ParsableCommand {
+    static var configuration = CommandConfiguration( subcommands: [Cithare.Init.self, Cithare.Add.self, Cithare.Show.self] )
     
 }
 
 
 @available(macOS 10.15, *)
-extension Pswn {
+extension Cithare {
     
     struct Add : ParsableCommand {
         
@@ -184,37 +184,48 @@ extension Pswn {
                 
             }
         }
+        
+
+    }
+    
+    struct Show : ParsableCommand {
+        
+        static var configuration: CommandConfiguration = CommandConfiguration.init(abstract: "Show password")
+        
+        
+        @Option(name: .long, help : "Disply duration in seconds" )
+        var displayTime : UInt = 5
+        
+        @Option(name: .shortAndLong, help : "Specify the site")
+        var website : String?
+        
+        func run() throws {
+            let masterKeywordOpt = getpass("Enter the master password : ")
+            guard let masterKey = masterKeywordOpt else { throw Cithare.Add.AddError.nullPasswordPointer }
+            let passwordEncrypter = PasswordManagerEncryption.init()
+            let sMasterkey = String(cString: masterKey)
+            switch passwordEncrypter.decrypt(masterKey: sMasterkey, atPath: appFileFullPath) {
+            case .failure(let error):
+                print("\(error)")
+                return
+            case .success(let passwordManager):
+                if let website = self.website {
+                    passwordManager.filter { pw in pw.website == website }
+                }
+                print(passwordManager.description)
+                sleep(UInt32(self.displayTime))
+                return
+            }
+        }
     }
 
 }
 
 
 if #available(macOS 10.15, *) {
-    Pswn.main()
+    Cithare.main()
 } else {
     print("Need macOS min version 10.15")
 }
 
-//if #available(macOS 12.0, *) {
-//    let masterKey = "MasterPass"
-//    func addPassword(){
-//        let passWord : Password = .init(website: "Nautiljon.fr", username: "Hello", mail: "you@me.mail", password: "Trymefirst123")
-//        let pm = PasswordManager()
-//        pm.addPassword(password: passWord)
-//        let pse = PasswordManagerEncryption.init()
-//        print(pse.encrypt(passwordManager: pm, masterKey: masterKey, atPath: appFileFullPath))
-//    }
-//
-//    func decrypt(){
-//        let pse = PasswordManagerEncryption.init()
-//        switch pse.decrypt(masterKey: masterKey, atPath: appFileFullPath) {
-//        case .failure(let error):
-//            print("\(error)")
-//        case .success(let passwordManager):
-//            print("\(passwordManager)")
-//        }
-//    }
-//
-//    addPassword()
-//    decrypt()
-//}
+

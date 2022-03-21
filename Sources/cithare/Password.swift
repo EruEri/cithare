@@ -33,16 +33,22 @@ func copyString(_ ptr : UnsafeMutablePointer<CChar>) -> String {
     return s
 }
 
+func addSpace(_ n : Int) -> String {
+    return (0..<abs(n)).map({ _ in " "}).joined()
+}
+
+
+
 
 @available(macOS 10.15, *)
-func confirmPassword(_ firstMessage : String, _ confirmMessage : String) -> Result<String, Pswn.Add.AddError> {
+func confirmPassword(_ firstMessage : String, _ confirmMessage : String) -> Result<String, Cithare.Add.AddError> {
     let pass_opt  = getpass(firstMessage)
-    guard let pass1 = pass_opt else { return .failure(Pswn.Add.AddError.nullPasswordPointer) }
+    guard let pass1 = pass_opt else { return .failure(Cithare.Add.AddError.nullPasswordPointer) }
     let p1 = String.init(cString: pass1)
     let pass_opt2 = getpass(confirmMessage)
-    guard let pass2 = pass_opt2 else { return .failure(Pswn.Add.AddError.nullPasswordPointer) }
+    guard let pass2 = pass_opt2 else { return .failure(Cithare.Add.AddError.nullPasswordPointer) }
     let p2 = String(cString: pass2)
-    if (p1 != p2) { return  .failure(Pswn.Add.AddError.unmatchPassword) }
+    if (p1 != p2) { return  .failure(Cithare.Add.AddError.unmatchPassword) }
     return .success(p1)
 }
 
@@ -57,6 +63,29 @@ class Password : Codable {
         self.username = username
         self.mail = mail
         self.password = password
+    }
+    
+    fileprivate func lineDescription(_ webLineLen : Int, _ userLineLen : Int,
+                                     _ mailLineLen : Int, _ passLineLen : Int) -> String {
+        var content = ""
+        content.append(self.website)
+        content.append(addSpace(webLineLen - self.website.count))
+        content.append("|")
+        
+        content.append(self.username ?? "")
+        content.append(addSpace(userLineLen - (self.username?.count ?? 0) ))
+        content.append("|")
+        
+        content.append(self.mail ?? "")
+        content.append(addSpace(mailLineLen - (self.mail?.count ?? 0) ))
+        content.append("|")
+        
+        content.append(self.password)
+        content.append(addSpace(passLineLen - self.password.count))
+        content.append("|\n")
+        (0..<webLineLen + mailLineLen + userLineLen + passLineLen + 4).forEach { _ in content.append("-") }
+        content.append("\n")
+        return content
     }
 }
 
@@ -80,7 +109,58 @@ enum ChangeStatus {
 
 
 
-class PasswordManager : Codable {
+class PasswordManager : Codable, CustomStringConvertible {
+    
+    var description: String {
+        
+        let website = "website"
+        let username = "username"
+        let mail = "mail"
+        let password = "password"
+        let websiteSquareLenght = self.passwords.reduce(0, { result, pass in
+            return max(result, pass.website.count)
+        }).max(y: website.count)
+        let usernameSquareLenght = self.passwords.reduce(0, { result, pass in
+            return max(result, pass.username?.count ?? -1)
+        }).max(y: username.count)
+        
+        let mailSquareLenght = self.passwords.reduce(0, { result, pass in
+            return result >= pass.mail?.count ?? 0 ? result : pass.mail!.count
+        }).max(y: mail.count)
+        
+        let passwordSquareLenght = self.passwords.reduce(0, { result, pass in
+            return result > pass.password.count ? result : pass.password.count
+        }).max(y: password.count)
+        
+        var content = ""
+        
+        content.append(website)
+        content.append(addSpace(websiteSquareLenght - website.count))
+        content.append("|")
+        
+        content.append(username)
+        content.append(addSpace(usernameSquareLenght - (username.count) ))
+        content.append("|")
+        
+        content.append(mail)
+        content.append(addSpace(mailSquareLenght - (mail.count) ))
+        content.append("|")
+        
+        content.append(password)
+        content.append(addSpace(passwordSquareLenght - password.count))
+        content.append("|\n")
+        
+        
+        (0..<websiteSquareLenght + mailSquareLenght + usernameSquareLenght + passwordSquareLenght + 4).forEach { _ in content.append("-") }
+        content.append("\n")
+        
+        self.passwords.forEach {
+            pass in content.append( pass.lineDescription(websiteSquareLenght, usernameSquareLenght, mailSquareLenght, passwordSquareLenght) )
+        }
+        return content
+    }
+    
+    
     var passwords : [Password]
     
     var count : Int {
@@ -104,6 +184,10 @@ class PasswordManager : Codable {
         let count = self.count
         self.passwords.removeAll { $0.website == website }
         return count - self.count
+    }
+    
+    func filter(where isIncluded: (Password) -> Bool) {
+        self.passwords = self.passwords.filter(isIncluded)
     }
     
     ///
@@ -166,3 +250,29 @@ struct PasswordManagerEncryption {
     
     
 }
+
+
+
+//if #available(macOS 12.0, *) {
+//    let masterKey = "MasterPass"
+//    func addPassword(){
+//        let passWord : Password = .init(website: "Nautiljon.fr", username: "Hello", mail: "you@me.mail", password: "Trymefirst123")
+//        let pm = PasswordManager()
+//        pm.addPassword(password: passWord)
+//        let pse = PasswordManagerEncryption.init()
+//        print(pse.encrypt(passwordManager: pm, masterKey: masterKey, atPath: appFileFullPath))
+//    }
+//
+//    func decrypt(){
+//        let pse = PasswordManagerEncryption.init()
+//        switch pse.decrypt(masterKey: masterKey, atPath: appFileFullPath) {
+//        case .failure(let error):
+//            print("\(error)")
+//        case .success(let passwordManager):
+//            print("\(passwordManager)")
+//        }
+//    }
+//
+//    addPassword()
+//    decrypt()
+//}
