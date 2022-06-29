@@ -153,7 +153,6 @@ extension Cithare {
                         case .added:
                             print("Password added")
                         }
-                        return
                     } else {
                         let password = Password.init(website: self.webSite, username: self.username, mail: self.mail, password: p1)
                         passwordManager.addPassword(password: password)

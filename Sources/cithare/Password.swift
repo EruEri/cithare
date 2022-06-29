@@ -269,6 +269,13 @@ class PasswordManager : Codable, CustomStringConvertible {
         self.passwords = self.passwords.filter(isIncluded)
     }
     
+    func findIndex(predicate: (Password) -> Bool) -> Int? {
+        for (i ,password) in passwords.enumerated() {
+            if predicate(password) { return i }
+        }
+        return nil
+    }
+    
     ///
     ///
     /// - Returns : If the password is replace
@@ -278,7 +285,7 @@ class PasswordManager : Codable, CustomStringConvertible {
             pass.username = username ?? pass.username
             pass.mail = mail ?? pass.mail
             return .replaced
-        }else {
+        } else {
             self.addPassword(password: Password.init(website: website, username: username, mail: mail, password: password))
             return .added
         }
