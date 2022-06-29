@@ -9,28 +9,107 @@ import Foundation
 import CryptoKit
 
 
-func readAllFile(atPath : String) -> [UInt8]? {
-    guard let file = fopen(atPath, "r") else { return nil }
-    
-    fseek(file, 0, SEEK_END)
-    let size = ftell(file)
-    fseek(file, 0, SEEK_SET)
-    var buffer = [UInt8].init(repeating: 0, count: size)
-    fread(&buffer, 1, size, file)
-    return buffer
+let upperLetterAsciiRange: ClosedRange<UInt8> = 65...90
+let lowerLetterAsciiRange: ClosedRange<UInt8> = 97...122
+
+var lettersAscii: [UInt8] {
+    var array = [UInt8]()
+    array.append(contentsOf: upperLetterAsciiRange)
+    array.append(contentsOf: lowerLetterAsciiRange)
+    return array
 }
 
-func copyString(_ ptr : UnsafeMutablePointer<CChar>) -> String {
-    var s = ""
-    var offset = 0
-    var offsetChar = ptr.advanced(by: offset).pointee;
-    let nullTerminate : Character = "\0"
-    while offset != (nullTerminate.asciiValue!) {
-        s.append(String.init(format: "%c", offsetChar))
-        offset += 1
-        offsetChar = ptr.advanced(by: offset).pointee
+var specialCharAsciiCode: [UInt8] {
+    let firstRange: ClosedRange<UInt8> = (33...47)
+    let secondeRange: ClosedRange<UInt8> = (58...64)
+    let thirdRange: ClosedRange<UInt8> = (91...96)
+    let fourthRange: ClosedRange<UInt8> = 123...126
+    var array: [UInt8] = []
+    array.append(contentsOf: firstRange)
+    array.append(contentsOf: secondeRange)
+    array.append(contentsOf: thirdRange)
+    array.append(contentsOf: fourthRange)
+    return array
+}
+
+enum CharType: CaseIterable {
+    case number
+    case letter
+    case specialChar
+    
+    func pickRandomChar() -> Character {
+        switch self {
+        case .number:
+            return (0...9).randomElement().map { Character.init("\($0)") }.unsafelyUnwrapped
+        case .letter:
+            return lettersAscii.randomElement().map { Character.init(.init($0)) }!
+        case .specialChar:
+            return specialCharAsciiCode.randomElement().map { Character.init(.init($0)) }!
+        }
     }
-    return s
+}
+
+func readValidatedInput(_ defaultMessage: String, _ errorMessage: String, _ emptyLineError: String) -> Bool {
+    print(defaultMessage)
+    let input = readLine()
+    guard let read = input else {
+        print(emptyLineError)
+        return readValidatedInput(defaultMessage, errorMessage, emptyLineError)
+    }
+    if read.count != 1 {
+        print(errorMessage)
+        return readValidatedInput(defaultMessage, errorMessage, emptyLineError)
+    } else {
+        switch read.first! {
+        case "y", "Y":
+            return true
+        case "n", "N":
+            return false
+        default:
+            print("Error ?")
+            print(errorMessage)
+            return readValidatedInput(defaultMessage, errorMessage, emptyLineError)
+        }
+    }
+}
+
+func generateRandomPassword(_ length: UInt, _ useNumber: Bool, _ useSpecialChar: Bool) -> String {
+    var cases: [CharType] = [.letter]
+    if useNumber { cases.append(.number) }
+    if useSpecialChar { cases.append(.specialChar) }
+    
+    var choosen = cases
+    var string = ""
+    for _ in 0..<length {
+        choosen.shuffle()
+        let type = choosen.removeFirst()
+        if choosen.isEmpty { choosen = cases }
+        string.append(type.pickRandomChar())
+    }
+    
+    return string
+}
+
+func isPasswordsatisfying(_ length: UInt, _ useNumber: Bool, _ useSpecialChar: Bool) -> Optional<String> {
+
+    let pass = generateRandomPassword(length, useNumber, useSpecialChar)
+    print("Generated Password\n***  \(pass) ***")
+    let response = readValidatedInput("Is password satisfying ? [y/n]",
+                                      "Wrong Input!\nSelect between [y/n]",
+                                      "No Input!\nPlease select a reponse")
+    if response {
+        return pass
+    } else {
+        let shouldKeepTrying = readValidatedInput("Do you want to try again? [y/n]",
+                                                  "Wrong Input!\nSelect between [y/n]",
+                                                  "No Input!\nPlease select a reponse")
+        if shouldKeepTrying {
+            return isPasswordsatisfying(length, useNumber, useSpecialChar)
+        } else {
+            return .none
+        }
+    }
+    
 }
 
 func addSpace(_ n : Int) -> String {
@@ -219,30 +298,20 @@ class PasswordManager : Codable, CustomStringConvertible {
 struct PasswordManagerEncryption {
     
     public func encrypt(passwordManager : PasswordManager, masterKey : String, atPath file : String) -> Result<(), EncryptionError> {
-        let asciiCharRange = (33...126)
         let key = SymmetricKey.init(data: SHA256.hash(data: masterKey.data(using: .utf8)!))
-//        print(key.withUnsafeBytes { $0.map { $0 } }  )
         let nonce = AES.GCM.Nonce.init()
-        let tagStr = String.init( (0..<16).map { _ in
-            Character.init(Unicode.Scalar.init(asciiCharRange.randomElement()!)!)
-        } )
-        let tag = tagStr.data(using: .ascii)!
         let data = passwordManager.toData()
-        guard let sealedBox = try? AES.GCM.seal(data, using: key, nonce: nonce, authenticating: tag) else { return .failure(.unableToEncrypt) }
-        guard var encryptedContent = sealedBox.combined else { return .failure(.unableToCombine) }
-        encryptedContent.append(contentsOf: tag)
+        guard let sealedBox = try? AES.GCM.seal(data, using: key, nonce: nonce) else { return .failure(.unableToEncrypt) }
+        guard let encryptedContent = sealedBox.combined else { return .failure(.unableToCombine) }
         guard let _ = try? encryptedContent.write(to: URL.init(fileURLWithPath: file), options: [.atomic]) else {  return .failure(.unableToWrite) }
         return .success(())
     }
     
     public func decrypt(masterKey: String, atPath file : String) -> Result<PasswordManager, DecryptionError> {
-        guard var dataByte = FileManager.default.contents(atPath: file) else { return .failure(.unableToRead) }
-        let tagStr = String.init(data: dataByte[(dataByte.count - 16)...], encoding: .ascii)!
-        let tag = tagStr.data(using: .ascii)!
-        dataByte = dataByte.dropLast(16)
+        guard let dataByte = FileManager.default.contents(atPath: file) else { return .failure(.unableToRead) }
         let key = SymmetricKey.init(data: SHA256.hash(data: masterKey.data(using: .utf8)!))
         guard let sealedBox = try? AES.GCM.SealedBox.init(combined: dataByte) else { return .failure(.unableToSealBox) }
-        guard let decryptedData = try? AES.GCM.open(sealedBox, using: key, authenticating: tag) else { return .failure(.unableToDecryptFile)}
+        guard let decryptedData = try? AES.GCM.open(sealedBox, using: key) else { return .failure(.unableToDecryptFile)}
         let decoder = JSONDecoder()
         guard let passwordManager = try? decoder.decode(PasswordManager.self, from: decryptedData) else { return .failure(.unableToDecryptPasswordManager) }
         return .success(passwordManager)

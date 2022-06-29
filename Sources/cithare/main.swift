@@ -1,8 +1,8 @@
 import Foundation
 import ArgumentParser
 
-let APPDIR : String = ".pswm"
-let PASSFILE : String = ".pswmfile"
+let APPDIR : String = ".cithare"
+let PASSFILE : String = ".citharecf"
 var appFileFullPath : String {
     let fileManager = FileManager.default
     var home : URL
@@ -18,7 +18,12 @@ var appFileFullPath : String {
 
 @available(macOS 10.15, *)
 struct Cithare : ParsableCommand {
-    static var configuration = CommandConfiguration( subcommands: [Cithare.Init.self, Cithare.Add.self, Cithare.Show.self] )
+    static var configuration = CommandConfiguration( subcommands: [
+        Cithare.Init.self,
+        Cithare.Add.self,
+        Cithare.Show.self,
+        Cithare.GeneratePassword.self
+    ])
     
     @Flag()
     var changeMasterPassword = false
@@ -75,26 +80,32 @@ extension Cithare {
                     return "Wrong master password"
                 case .alreadyPassforWebsite(let link):
                     return "A password already exists for this site : \(link)"
+                case .passwordNotSatisfying:
+                    return "Password Generation failed"
                 }
             }
             
             case nullPasswordPointer
             case unmatchPassword
             case wrongMasterPassword
+            case passwordNotSatisfying
             case alreadyPassforWebsite(String)
         }
         
-        @Flag(name : .shortAndLong, help: "Use in order to replace a password")
+        @Flag(name: .shortAndLong, help: "Use in order to replace a password")
         var replace = false
         
         @Option(name: .shortAndLong)
         var webSite : String
         
-        @Option(name : .shortAndLong)
+        @Option(name: .shortAndLong)
         var username : String?
         
         @Option(name: .shortAndLong)
         var mail : String?
+        
+        @Option(name: .long, help: "Generate an automatic password with a given lenght")
+        var autoGen: UInt8?
         
         func validate() throws {
             if self.username == nil && self.mail == nil && !self.replace {
@@ -103,51 +114,62 @@ extension Cithare {
             if !FileManager.default.fileExists(atPath: appFileFullPath) {
                 throw ValidationError("app file not found.\nYou should run 'init' command")
             }
+            if let lenght = autoGen, lenght < 8 {
+                throw ValidationError("Password lenght is too short\n Need at least 8 charaters")
+            }
+        }
+        
+        func getPass() -> Result<String, Cithare.Add.AddError> {
+            if let autoGen = autoGen {
+                if let pass = isPasswordsatisfying(UInt(autoGen), true, true) {
+                    return .success(pass)
+                } else {
+                    return .failure(.passwordNotSatisfying)
+                }
+            } else {
+                return confirmPassword("Enter a password : ", "Confirm password :  ")
+            }
         }
         
         func run() throws {
             
-            let result = confirmPassword("Enter a password : ", "Confirm password :  ")
-            switch result {
+            switch getPass() {
             case .failure(let error):
                 throw error
-            default:
-                break
-            }
-            let p1 = try! result.get()
-            let masterKeywordOpt = getpass("Enter the master password : ")
-            guard let masterKey = masterKeywordOpt else { throw Self.AddError.nullPasswordPointer }
-            let passwordEncrypter = PasswordManagerEncryption.init()
-            let sMasterkey = String(cString: masterKey)
-            switch passwordEncrypter.decrypt(masterKey: sMasterkey, atPath: appFileFullPath) {
-            case .failure(let error):
-                print("\(error)")
-                return
-            case .success(let passwordManager):
-                
-                if (self.replace){
-                    switch passwordManager.replaceOrAdd(website: self.webSite, password: p1, username: self.username, mail: self.mail){
-                    case .replaced:
-                        print("Password replaced")
-                    case .added:
-                        print("Password added")
-                    }
-                    return
-                }else {
-                    let password = Password.init(website: self.webSite, username: self.username, mail: self.mail, password: p1)
-                    passwordManager.addPassword(password: password)
-                }
-                
-                switch passwordEncrypter.encrypt(passwordManager: passwordManager, masterKey: sMasterkey, atPath: appFileFullPath) {
+            case .success(let p1):
+                let masterKeywordOpt = getpass("Enter the master password : ")
+                guard let masterKey = masterKeywordOpt else { throw Self.AddError.nullPasswordPointer }
+                let passwordEncrypter = PasswordManagerEncryption.init()
+                let sMasterkey = String(cString: masterKey)
+                switch passwordEncrypter.decrypt(masterKey: sMasterkey, atPath: appFileFullPath) {
                 case .failure(let error):
-                    print("\(error)")
-                    return
-                case .success(_):
-                    print("Password saved")
-                    return
+                    throw error
+                case .success(let passwordManager):
+                    
+                    if self.replace {
+                        switch passwordManager.replaceOrAdd(website: self.webSite, password: p1, username: self.username, mail: self.mail){
+                        case .replaced:
+                            print("Password replaced")
+                        case .added:
+                            print("Password added")
+                        }
+                        return
+                    } else {
+                        let password = Password.init(website: self.webSite, username: self.username, mail: self.mail, password: p1)
+                        passwordManager.addPassword(password: password)
+                    }
+                    
+                    switch passwordEncrypter.encrypt(passwordManager: passwordManager, masterKey: sMasterkey, atPath: appFileFullPath) {
+                    case .failure(let error):
+                        print("\(error)")
+                        return
+                    case .success(_):
+                        print("Password saved")
+                        return
+                    }
                 }
-            }
 
+            }
         }
     }
     
@@ -190,15 +212,15 @@ extension Cithare {
                 }
             }
             home.appendPathComponent(PASSFILE)
-            if (!self.force){
+            if !self.force {
                 if fileManager.fileExists(atPath: home.path) {
                     throw Self.InitError.alreadyInitialized
                 }
             }
             let isCreated = fileManager.createFile(atPath: home.path, contents: nil, attributes: nil)
-            if (!isCreated) {
+            if !isCreated {
                 throw Self.InitError.unableToCreateFile
-            }else {
+            } else {
                 let confirmPass = confirmPassword("Choose the master password : ", "Confirm the master password : ")
                 switch confirmPass {
                 case .failure(let error):
@@ -228,7 +250,7 @@ extension Cithare {
         static var configuration: CommandConfiguration = CommandConfiguration.init(abstract: "Show password")
         
         
-        @Option(name: .long, help : "Disply duration in seconds" )
+        @Option(name: [.long, .customLong("dt")], help : "Disply duration in seconds" )
         var displayTime : UInt = 5
         
         @Option(name: .shortAndLong, help : "Specify the site")
@@ -252,6 +274,24 @@ extension Cithare {
                 print("\u{001B}[2J")
                 return
             }
+        }
+    }
+    
+    struct GeneratePassword: ParsableCommand {
+        static var configuration: CommandConfiguration = CommandConfiguration.init(abstract: "Generate a random password")
+        
+        @Option(name: .shortAndLong, help: "Password length")
+        var length : UInt = 16
+        
+        @Flag(name: [.customShort("n"), .long], help: "Use numbers in password creation")
+        var useNumber: Bool = false
+        
+        @Flag(name: [.customLong("sp"), .long], help: "Use special ascii character in password creation")
+        var useSpecialChar: Bool = false
+        
+        func run() throws {
+            print("Generating .....")
+            print(generateRandomPassword(self.length, self.useNumber, self.useSpecialChar))
         }
     }
 
