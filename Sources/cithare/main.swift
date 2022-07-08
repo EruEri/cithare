@@ -250,10 +250,13 @@ extension Cithare {
         
         
         @Option(name: [.long, .customLong("dt")], help : "Disply duration in seconds" )
-        var displayTime : UInt = 5
+        var displayTime: UInt = 5
         
         @Option(name: .shortAndLong, help : "Specify the site")
-        var website : String?
+        var website: String?
+        
+        @Option(name: [.short, .long], help: "Output file")
+        var output: String?
         
         func run() throws {
             let masterKeywordOpt = getpass("Enter the master password : ")
@@ -268,9 +271,19 @@ extension Cithare {
                 if let website = self.website {
                     passwordManager.filter { pw in pw.website == website }
                 }
-                print(passwordManager.description)
-                sleep(UInt32(self.displayTime))
-                print("\u{001B}[2J")
+                if let output = output {
+                    let fileManager = FileManager.default
+                    if fileManager.createFile(atPath: output, contents: passwordManager.description.data(using: .utf8)) {
+                        print("Successfully written at \(output)")
+                        return
+                    } else {
+                        print("Unable to create the output file")
+                    }
+                } else {
+                    print(passwordManager.description)
+                    sleep(UInt32(self.displayTime))
+                    print("\u{001B}[2J")
+                }
                 return
             }
         }
