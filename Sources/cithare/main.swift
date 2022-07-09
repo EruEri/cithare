@@ -1,5 +1,6 @@
 import Foundation
 import ArgumentParser
+import AppKit
 
 let APPDIR : String = ".cithare"
 let PASSFILE : String = ".citharecf"
@@ -240,7 +241,6 @@ extension Cithare {
                 
             }
         }
-        
 
     }
     
@@ -258,6 +258,15 @@ extension Cithare {
         @Option(name: [.short, .long], help: "Output file")
         var output: String?
         
+        @Flag(name: [.short, .long], help: "Write the password into the pasteboard")
+        var paste = false
+        
+        func validate() throws {
+            if paste && website == nil {
+                throw ValidationError(" --website must be provided if --paste is present")
+            }
+        }
+        
         func run() throws {
             let masterKeywordOpt = getpass("Enter the master password : ")
             guard let masterKey = masterKeywordOpt else { throw Cithare.Add.AddError.nullPasswordPointer }
@@ -270,6 +279,19 @@ extension Cithare {
             case .success(let passwordManager):
                 if let website = self.website {
                     passwordManager.filter { pw in pw.website == website }
+                }
+                if paste {
+                    if let password = passwordManager.passwords.first {
+                        NSPasteboard.general.clearContents()
+                        if NSPasteboard.general.setString(password.password, forType: .string) {
+                            print("Password successfully written in pasteboard")
+                        } else {
+                            print("Unable to write into the pasteboard")
+                        }
+                    } else {
+                        print("Cannot find a password for the given website")
+                    }
+                    return
                 }
                 if let output = output {
                     let fileManager = FileManager.default
