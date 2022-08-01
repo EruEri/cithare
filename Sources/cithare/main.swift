@@ -249,7 +249,7 @@ extension Cithare {
         static var configuration: CommandConfiguration = CommandConfiguration.init(abstract: "Show password")
         
         
-        @Option(name: [.long, .customLong("dt")], help : "Disply duration in seconds" )
+        @Option(name: [.short, .long, .customLong("dt")], help : "Display duration in seconds" )
         var displayTime: UInt = 5
         
         @Option(name: .shortAndLong, help : "Specify the site")
@@ -292,8 +292,7 @@ extension Cithare {
                         print("Cannot find a password for the given website")
                     }
                     return
-                }
-                if let output = output {
+                } else if let output = output {
                     let fileManager = FileManager.default
                     if fileManager.createFile(atPath: output, contents: passwordManager.description.data(using: .utf8)) {
                         print("Successfully written at \(output)")
