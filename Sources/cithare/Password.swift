@@ -265,8 +265,8 @@ class PasswordManager : Codable, CustomStringConvertible {
         return count - self.count
     }
     
-    func filter(where isIncluded: (Password) -> Bool) {
-        self.passwords = self.passwords.filter(isIncluded)
+    func filter(where isIncluded: (Password) throws -> Bool) rethrows {
+        self.passwords = try self.passwords.filter(isIncluded)
     }
     
     func findIndex(predicate: (Password) -> Bool) -> Int? {

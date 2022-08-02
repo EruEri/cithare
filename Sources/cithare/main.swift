@@ -255,6 +255,9 @@ extension Cithare {
         @Option(name: .shortAndLong, help : "Specify the site")
         var website: String?
         
+        @Flag(name: [.short, .long], help: "Find the website by matching its name")
+        var regex = false
+        
         @Option(name: [.short, .long], help: "Output file")
         var output: String?
         
@@ -278,18 +281,39 @@ extension Cithare {
                 return
             case .success(let passwordManager):
                 if let website = self.website {
-                    passwordManager.filter { pw in pw.website == website }
+                    if regex {
+                        let regexR = try NSRegularExpression(pattern: website, options: .caseInsensitive)
+                        passwordManager.filter { password in
+                            let matches = regexR.matches(in: password.website, range: .init(location: 0, length: password.website.count))
+                            return !matches.isEmpty
+                        }
+                        
+                        if passwordManager.count == 0 {
+                            print("No websites matched")
+                            throw ExitCode.init(1)
+                        } else if passwordManager.count >= 2  {
+                            print("To much websites matched\nConflict between:\n  \(passwordManager.passwords.map({ $0.website }).joined(separator: "\n  "))")
+                            throw ExitCode.init(1)
+                        }
+                    } else {
+                        passwordManager.filter { pw in pw.website == website }
+                    }
                 }
                 if paste {
                     if let password = passwordManager.passwords.first {
                         NSPasteboard.general.clearContents()
                         if NSPasteboard.general.setString(password.password, forType: .string) {
+                            if regex {
+                                print("For : \(password.website)")
+                            }
                             print("Password successfully written in pasteboard")
                         } else {
                             print("Unable to write into the pasteboard")
+                            throw ExitCode.init(1)
                         }
                     } else {
                         print("Cannot find a password for the given website")
+                        throw ExitCode.init(1)
                     }
                     return
                 } else if let output = output {
@@ -299,6 +323,7 @@ extension Cithare {
                         return
                     } else {
                         print("Unable to create the output file")
+                        throw ExitCode.init(1)
                     }
                 } else {
                     print(passwordManager.description)
