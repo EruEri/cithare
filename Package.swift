@@ -17,7 +17,7 @@ let package = Package(
             name: "cithare",
             dependencies: [.product(name: "ArgumentParser", package: "swift-argument-parser")] ),
         .testTarget(
-            name: "pswmTests",
+            name: "cithareTests",
             dependencies: ["cithare"]),
     ]
 )
