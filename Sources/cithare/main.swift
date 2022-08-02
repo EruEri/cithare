@@ -310,7 +310,6 @@ extension Cithare {
                 }
                 #if os(macOS)
                 if paste {
-                   
                     if let password = passwordManager.passwords.first {
                         NSPasteboard.general.clearContents()
                         if NSPasteboard.general.setString(password.password, forType: .string) {
@@ -327,7 +326,6 @@ extension Cithare {
                         print("Cannot find a password for the given website")
                         throw ExitCode.init(1)
                     }
-                    return
                 } #endif 
                 if let output = output {
                     let fileManager = FileManager.default
