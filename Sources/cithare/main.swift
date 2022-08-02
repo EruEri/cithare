@@ -1,6 +1,9 @@
 import Foundation
 import ArgumentParser
+
+#if canImport(APPKit)
 import AppKit
+#endif
 
 let APPDIR : String = ".cithare"
 let PASSFILE : String = ".citharecf"
@@ -255,19 +258,25 @@ extension Cithare {
         @Option(name: .shortAndLong, help : "Specify the site")
         var website: String?
         
+        
         @Flag(name: [.short, .long], help: "Find the website by matching its name")
         var regex = false
         
+
         @Option(name: [.short, .long], help: "Output file")
         var output: String?
-        
+
+        #if os(macOS)
         @Flag(name: [.short, .long], help: "Write the password into the pasteboard")
         var paste = false
-        
+        #endif
+
         func validate() throws {
+            #if os(macOS)
             if paste && website == nil {
                 throw ValidationError(" --website must be provided if --paste is present")
             }
+            #endif
         }
         
         func run() throws {
@@ -299,6 +308,7 @@ extension Cithare {
                         passwordManager.filter { pw in pw.website == website }
                     }
                 }
+                #if os(macOS)
                 if paste {
                     if let password = passwordManager.passwords.first {
                         NSPasteboard.general.clearContents()
@@ -307,6 +317,7 @@ extension Cithare {
                                 print("For : \(password.website)")
                             }
                             print("Password successfully written in pasteboard")
+                            return
                         } else {
                             print("Unable to write into the pasteboard")
                             throw ExitCode.init(1)
@@ -315,8 +326,8 @@ extension Cithare {
                         print("Cannot find a password for the given website")
                         throw ExitCode.init(1)
                     }
-                    return
-                } else if let output = output {
+                } #endif 
+                if let output = output {
                     let fileManager = FileManager.default
                     if fileManager.createFile(atPath: output, contents: passwordManager.description.data(using: .utf8)) {
                         print("Successfully written at \(output)")

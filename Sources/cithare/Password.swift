@@ -6,7 +6,12 @@
 //
 
 import Foundation
+
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 
 
 let upperLetterAsciiRange: ClosedRange<UInt8> = 65...90
