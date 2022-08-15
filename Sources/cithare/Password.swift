@@ -311,9 +311,11 @@ struct PasswordManagerEncryption {
     
     public func encrypt(passwordManager : PasswordManager, masterKey : String, atPath file : String) -> Result<(), EncryptionError> {
         let key = SymmetricKey.init(data: SHA256.hash(data: masterKey.data(using: .utf8)!))
+        let derivedKey = HKDF<SHA256>.deriveKey(inputKeyMaterial: key, outputByteCount: 32)
+        
         let nonce = AES.GCM.Nonce.init()
         let data = passwordManager.toData()
-        guard let sealedBox = try? AES.GCM.seal(data, using: key, nonce: nonce) else { return .failure(.unableToEncrypt) }
+        guard let sealedBox = try? AES.GCM.seal(data, using: derivedKey, nonce: nonce) else { return .failure(.unableToEncrypt) }
         guard let encryptedContent = sealedBox.combined else { return .failure(.unableToCombine) }
         guard let _ = try? encryptedContent.write(to: URL.init(fileURLWithPath: file), options: [.atomic]) else {  return .failure(.unableToWrite) }
         return .success(())
@@ -322,8 +324,10 @@ struct PasswordManagerEncryption {
     public func decrypt(masterKey: String, atPath file : String) -> Result<PasswordManager, DecryptionError> {
         guard let dataByte = FileManager.default.contents(atPath: file) else { return .failure(.unableToRead) }
         let key = SymmetricKey.init(data: SHA256.hash(data: masterKey.data(using: .utf8)!))
+        let derivedKey = HKDF<SHA256>.deriveKey(inputKeyMaterial: key, outputByteCount: 32)
+        
         guard let sealedBox = try? AES.GCM.SealedBox.init(combined: dataByte) else { return .failure(.unableToSealBox) }
-        guard let decryptedData = try? AES.GCM.open(sealedBox, using: key) else { return .failure(.unableToDecryptFile)}
+        guard let decryptedData = try? AES.GCM.open(sealedBox, using: derivedKey) else { return .failure(.unableToDecryptFile)}
         let decoder = JSONDecoder()
         guard let passwordManager = try? decoder.decode(PasswordManager.self, from: decryptedData) else { return .failure(.unableToDecryptPasswordManager) }
         return .success(passwordManager)
