@@ -195,6 +195,24 @@ enum ChangeStatus {
 
 class PasswordManager : Codable, CustomStringConvertible {
     
+    init(formFormated formated: String) {
+        let passwords = formated
+            .split(separator: "\n")
+            .enumerated()
+            .compactMap ({ (index, line) in index != 0 && index.isMultiple(of: 2) ? String(line) : nil  })
+            .compactMap { line -> Password? in
+                let passwordComponents = line.split(separator: "|")
+                guard passwordComponents.count == 4 else { return nil }
+                let website = passwordComponents[0]
+                let username = (passwordComponents[1].contains { !$0.isWhitespace } ? passwordComponents[1] : nil).map(String.init)
+                let mail = (passwordComponents[2].contains { !$0.isWhitespace } ? passwordComponents[2] : nil).map(String.init)
+                let password = passwordComponents[3]
+                return Password.init(website: String(website), username: username, mail: mail, password: String(password))
+            }
+
+        self.passwords = passwords
+    }
+    
     var description: String {
         
         let website = "website"
@@ -202,14 +220,14 @@ class PasswordManager : Codable, CustomStringConvertible {
         let mail = "mail"
         let password = "password"
         let websiteSquareLenght = self.passwords.reduce(0, { result, pass in
-            return max(result, pass.website.count)
+            max(result, pass.website.count)
         }).max(y: website.count)
         let usernameSquareLenght = self.passwords.reduce(0, { result, pass in
-            return max(result, pass.username?.count ?? -1)
+            max(result, pass.username?.count ?? -1)
         }).max(y: username.count)
         
         let mailSquareLenght = self.passwords.reduce(0, { result, pass in
-            return result >= pass.mail?.count ?? 0 ? result : pass.mail!.count
+            result >= pass.mail?.count ?? 0 ? result : pass.mail!.count
         }).max(y: mail.count)
         
         let passwordSquareLenght = self.passwords.reduce(0, { result, pass in
@@ -238,8 +256,8 @@ class PasswordManager : Codable, CustomStringConvertible {
         (0..<websiteSquareLenght + mailSquareLenght + usernameSquareLenght + passwordSquareLenght + 4).forEach { _ in content.append("-") }
         content.append("\n")
         
-        self.passwords.forEach {
-            pass in content.append( pass.lineDescription(websiteSquareLenght, usernameSquareLenght, mailSquareLenght, passwordSquareLenght) )
+        self.passwords.forEach { pass in
+            content.append( pass.lineDescription(websiteSquareLenght, usernameSquareLenght, mailSquareLenght, passwordSquareLenght) )
         }
         return content
     }

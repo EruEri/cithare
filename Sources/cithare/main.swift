@@ -198,6 +198,9 @@ extension Cithare {
         @Flag(name: .shortAndLong, help : "Force the initialization")
         var force = false
         
+        @Option(name: .shortAndLong, help: "Initialize with a formatted password file")
+        var `import`: String?
+        
         func run() throws {
             let fileManager = FileManager.default
             var home : URL = fileManager.homeDirectoryForCurrentUser
@@ -217,6 +220,9 @@ extension Cithare {
             home.appendPathComponent(PASSFILE)
             if !self.force {
                 if fileManager.fileExists(atPath: home.path) {
+                    if self.import == nil {
+                        print("cithare already initialized. Use --force the initialization")
+                    }
                     throw Self.InitError.alreadyInitialized
                 }
             }
@@ -232,13 +238,26 @@ extension Cithare {
                     break
                 }
                 let master = try! confirmPass.get()
-                let passwordManager = PasswordManager.init()
+                
+                
+                var passwordManager: PasswordManager {
+                    get throws {
+                        if let filePath = self.import {
+                            let fileText = try String(contentsOf: .init(fileURLWithPath: filePath), encoding: .utf8)
+                            return .init(formFormated: fileText)
+                        } else {
+                            return PasswordManager.init()
+                        }
+                    }
+                }
+                
                 let passwordManagerEncryption =  PasswordManagerEncryption.init()
-                switch passwordManagerEncryption.encrypt(passwordManager: passwordManager, masterKey: master, atPath: home.path){
+                switch passwordManagerEncryption.encrypt(passwordManager: try passwordManager, masterKey: master, atPath: home.path){
                 case .failure(let error):
                     throw error
-                case .success(_):
-                    print("Cithare Initiliazed\n")
+                case .success:
+                    let addInfo = self.import != nil ? " with imported passwords" : ""
+                    print("Cithare Initiliazed\(addInfo)\n")
                     return
                 }
                 
