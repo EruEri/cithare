@@ -20,11 +20,12 @@ var appFileFullPath : String {
     return home.path
 }
 
-@available(macOS 10.15, *)
+
 struct Cithare : ParsableCommand {
-    static var configuration = CommandConfiguration( subcommands: [
+    static var configuration = CommandConfiguration(version: "0.4.0", subcommands: [
         Cithare.Init.self,
         Cithare.Add.self,
+        Cithare.Delete.self,
         Cithare.Show.self,
         Cithare.GeneratePassword.self
     ])
@@ -67,12 +68,11 @@ struct Cithare : ParsableCommand {
 }
 
 
-@available(macOS 10.15, *)
 extension Cithare {
     
-    struct Add : ParsableCommand {
+    struct Add: ParsableCommand {
         
-        static var configuration: CommandConfiguration = CommandConfiguration(abstract: "Add a new password into the password Manager")
+        static var configuration: CommandConfiguration = CommandConfiguration(abstract: "Add password into the password Manager")
         enum AddError : Error, CustomStringConvertible {
             var description: String {
                 switch self {
@@ -166,7 +166,7 @@ extension Cithare {
                     case .failure(let error):
                         print("\(error)")
                         return
-                    case .success(_):
+                    case .success:
                         print("Password saved")
                         return
                     }
@@ -176,7 +176,70 @@ extension Cithare {
         }
     }
     
-    struct Init : ParsableCommand {
+    struct Delete: ParsableCommand {
+        static var configuration: CommandConfiguration = .init(abstract: "Delete password from the password manager")
+        
+        @Flag(name: .shortAndLong, help: "Delete all passwords")
+        var all = false
+        
+        @Option(name: .shortAndLong)
+        var website: String?
+        
+        func validate() throws {
+            if !self.all && website == nil {
+                throw ValidationError.init("Expect --website if --all missing")
+            }
+        }
+        
+        func run() throws {
+            let masterKeywordOpt = getpass("Enter the master password : ")
+            guard let masterKey = masterKeywordOpt else { throw Cithare.Add.AddError.nullPasswordPointer }
+            let passwordEncrypter = PasswordManagerEncryption.init()
+            let sMasterkey = String(cString: masterKey)
+            
+            switch passwordEncrypter.decrypt(masterKey: sMasterkey, atPath: appFileFullPath) {
+            case .failure(let error):
+                throw error
+            case .success(let passwordManager):
+                let oldCount = passwordManager.passwords.count
+                if self.all {
+                    let response = readValidatedInput("Do you want to delete all your password? [y/N] ", "Wrong Input!\nSelect between [y/n]", "No Input!\nPlease select a reponse")
+                    if response {
+                       
+                        passwordManager.passwords.removeAll()
+                        switch passwordEncrypter.encrypt(passwordManager: passwordManager, masterKey: sMasterkey, atPath: appFileFullPath) {
+                        case .failure(let error):
+                            print("\(error)")
+                            return
+                        case .success:
+                            print("\(oldCount) password\(oldCount <= 1 ? "" : "s") deleted")
+                            return
+                        }
+                    } else {
+                        print("Delete action cancelled")
+                        throw ExitCode.init(0)
+                    }
+                } else {
+                    passwordManager.passwords.removeAll(where: { password in password.website == self.website })
+                    if passwordManager.count == oldCount {
+                        print("No website matching")
+                        throw ExitCode(1)
+                    }
+                    switch passwordEncrypter.encrypt(passwordManager: passwordManager, masterKey: sMasterkey, atPath: appFileFullPath) {
+                    case .failure(let error):
+                        print("\(error)")
+                        return
+                    case .success:
+                        let diff = oldCount - passwordManager.count
+                        print("\(diff) password\(diff <= 1 ? "" : "s") deleted")
+                        return
+                    }
+                }
+            }
+        }
+    }
+    
+    struct Init: ParsableCommand {
         
         static var configuration: CommandConfiguration = CommandConfiguration.init(abstract: "Initialize the password Manager")
         enum InitError : Error, CustomStringConvertible {
@@ -204,11 +267,6 @@ extension Cithare {
         func run() throws {
             let fileManager = FileManager.default
             var home : URL = fileManager.homeDirectoryForCurrentUser
-//            if #available(macOS 10.12, *) {
-//                home = fileManager.homeDirectoryForCurrentUser
-//            } else {
-//                home = URL(fileURLWithPath: NSHomeDirectory())
-//            }
             home.appendPathComponent(APPDIR)
             if !fileManager.fileExists(atPath: home.path, isDirectory: nil ) {
                 do {
@@ -385,11 +443,4 @@ extension Cithare {
 
 }
 
-
-if #available(macOS 10.15, *) {
-    Cithare.main()
-} else {
-    print("Need macOS min version 10.15")
-}
-
-
+Cithare.main()
