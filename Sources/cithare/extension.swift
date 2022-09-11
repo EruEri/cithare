@@ -7,7 +7,6 @@
 
 import Foundation
 
-
 extension Int {
     public func max(y: Self) -> Self {
         return Swift.max(self, y)

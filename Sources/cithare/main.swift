@@ -22,12 +22,13 @@ var appFileFullPath : String {
 
 
 struct Cithare : ParsableCommand {
-    static var configuration = CommandConfiguration(version: "0.4.0", subcommands: [
+    static var configuration = CommandConfiguration(version: "0.6.0", subcommands: [
         Cithare.Init.self,
         Cithare.Add.self,
         Cithare.Delete.self,
         Cithare.Show.self,
-        Cithare.GeneratePassword.self
+        Cithare.GeneratePassword.self,
+        Nc.self
     ])
     
     @Flag()
@@ -59,7 +60,7 @@ struct Cithare : ParsableCommand {
             switch passEncryp.encrypt(passwordManager: password, masterKey: new_pass, atPath: appFileFullPath) {
             case .failure(let error):
                 throw error
-            case .success(_):
+            case .success:
                 print("Master password sucessfully changed")
             }
         }
@@ -438,6 +439,17 @@ extension Cithare {
         func run() throws {
             print("Generating .....")
             print(generateRandomPassword(self.length, self.useNumber, self.useSpecialChar))
+        }
+    }
+    
+    struct Nc: ParsableCommand {
+        static var configuration: CommandConfiguration = .init(abstract: "Test n cureses")
+        
+        func run() throws {
+            let passwordManager = PasswordManager()
+            passwordManager.passwords.append(.init(website: "abcaaaaaaaaaaaaa.com", username: nil, mail: nil, password: "A password"))
+            passwordManager.passwords.append(.init(website: "daigfiahzfan.com", username: "LisaOribe", mail: "a mail@mail.com", password: "A other passord"))
+            passwordManager.ncursesDisplay(displayTime: nil)
         }
     }
 
