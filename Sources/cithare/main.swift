@@ -27,8 +27,7 @@ struct Cithare : ParsableCommand {
         Cithare.Add.self,
         Cithare.Delete.self,
         Cithare.Show.self,
-        Cithare.GeneratePassword.self,
-        Nc.self
+        Cithare.GeneratePassword.self
     ])
     
     @Flag()
@@ -330,12 +329,14 @@ extension Cithare {
         static var configuration: CommandConfiguration = CommandConfiguration.init(abstract: "Show password")
         
         
-        @Option(name: [.short, .long, .customLong("dt")], help : "Display duration in seconds" )
-        var displayTime: UInt = 5
+        @Option(name: [.short, .long], help : "Display duration in seconds" )
+        var displayTime: UInt?
         
         @Option(name: .shortAndLong, help : "Specify the site")
         var website: String?
         
+        @Flag(name: [.long], help: "Display passwords using ncurses")
+        var ncurses = false
         
         @Flag(name: [.short, .long], help: "Find the website by matching its name")
         var regex = false
@@ -415,9 +416,13 @@ extension Cithare {
                         throw ExitCode.init(1)
                     }
                 } else {
-                    print(passwordManager.description)
-                    sleep(UInt32(self.displayTime))
-                    print("\u{001B}[2J")
+                    if ncurses {
+                        passwordManager.ncursesDisplay(displayTime: self.displayTime.map { Int($0) } )
+                    } else {
+                        print(passwordManager.description)
+                        sleep(UInt32(self.displayTime ?? 5))
+                        print("\u{001B}[2J")
+                    }
                 }
                 return
             }
@@ -439,17 +444,6 @@ extension Cithare {
         func run() throws {
             print("Generating .....")
             print(generateRandomPassword(self.length, self.useNumber, self.useSpecialChar))
-        }
-    }
-    
-    struct Nc: ParsableCommand {
-        static var configuration: CommandConfiguration = .init(abstract: "Test n cureses")
-        
-        func run() throws {
-            let passwordManager = PasswordManager()
-            passwordManager.passwords.append(.init(website: "abcaaaaaaaaaaaaa.com", username: nil, mail: nil, password: "A password"))
-            passwordManager.passwords.append(.init(website: "daigfiahzfan.com", username: "A username\0", mail: "a mail@mail.com", password: "A other passord"))
-            passwordManager.ncursesDisplay(displayTime: 5)
         }
     }
 

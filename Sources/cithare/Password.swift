@@ -333,10 +333,6 @@ class PasswordManager : Codable, CustomStringConvertible {
         }).max(y: password.count)
 
         let cPasswordManager = self.toCPasswordManager()
-        // for index in 0..<cPasswordManager.count {
-        //     let cPassword = cPasswordManager.passwords.advanced(by: index)
-        //     resetMemory(ptr: cPassword.pointee.password)
-        // }
         display_ncurses(cPasswordManager,
                         websiteSquareLenght,
                         usernameSquareLenght,
