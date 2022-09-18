@@ -14,6 +14,13 @@ import CryptoKit
 import Crypto
 #endif
 
+extension UnsafeMutablePointer where Pointee == CChar {
+    func resetMemory(with value: CChar = 0) {
+        let stringLen = strlen(self)
+        self.assign(repeating: value, count: stringLen)
+    }
+}
+
 
 let upperLetterAsciiRange: ClosedRange<UInt8> = 65...90
 let lowerLetterAsciiRange: ClosedRange<UInt8> = 97...122
@@ -304,7 +311,7 @@ class PasswordManager : Codable, CustomStringConvertible {
         return content
     }
     
-    func ncursesDisplay(displayTime : UInt8?) {
+    func ncursesDisplay(displayTime : Int?) {
         
         let website = "website"
         let username = "username"
@@ -324,19 +331,30 @@ class PasswordManager : Codable, CustomStringConvertible {
         let passwordSquareLenght = self.passwords.reduce(0, { result, pass in
              result > pass.password.count ? result : pass.password.count
         }).max(y: password.count)
-        
+
         let cPasswordManager = self.toCPasswordManager()
+        // for index in 0..<cPasswordManager.count {
+        //     let cPassword = cPasswordManager.passwords.advanced(by: index)
+        //     resetMemory(ptr: cPassword.pointee.password)
+        // }
         display_ncurses(cPasswordManager,
                         websiteSquareLenght,
                         usernameSquareLenght,
                         mailSquareLenght,
                         passwordSquareLenght,
-                        nil)
+                        displayTime ?? -1)
         for index in 0..<cPasswordManager.count {
             let cPassword = cPasswordManager.passwords.advanced(by: index)
+            cPassword.pointee.password.resetMemory()
             cPassword.pointee.password.deallocate()
+
+            cPassword.pointee.website.resetMemory()
             cPassword.pointee.website.deallocate()
+
+            cPassword.pointee.username.resetMemory()
             cPassword.pointee.username.deallocate()
+
+            cPassword.pointee.mail.resetMemory()
             cPassword.pointee.mail.deallocate()
         }
         cPasswordManager.passwords.deallocate()
@@ -429,7 +447,6 @@ struct PasswordManagerEncryption {
         guard let passwordManager = try? decoder.decode(PasswordManager.self, from: decryptedData) else { return .failure(.unableToDecryptPasswordManager) }
         return .success(passwordManager)
     }
-    
     
 }
 

@@ -1,7 +1,7 @@
 import Foundation
 import ArgumentParser
 
-#if canImport(APPKit)
+#if canImport(AppKit)
 import AppKit
 #endif
 
@@ -448,8 +448,8 @@ extension Cithare {
         func run() throws {
             let passwordManager = PasswordManager()
             passwordManager.passwords.append(.init(website: "abcaaaaaaaaaaaaa.com", username: nil, mail: nil, password: "A password"))
-            passwordManager.passwords.append(.init(website: "daigfiahzfan.com", username: "LisaOribe", mail: "a mail@mail.com", password: "A other passord"))
-            passwordManager.ncursesDisplay(displayTime: nil)
+            passwordManager.passwords.append(.init(website: "daigfiahzfan.com", username: "A username\0", mail: "a mail@mail.com", password: "A other passord"))
+            passwordManager.ncursesDisplay(displayTime: 5)
         }
     }
 

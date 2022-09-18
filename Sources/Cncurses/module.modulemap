@@ -1,0 +1,5 @@
+module Cncurses {
+    header "include/Cnurses-Bridging-Header.h"
+    link "ncurses"
+    export *
+}

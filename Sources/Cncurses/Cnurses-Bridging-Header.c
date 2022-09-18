@@ -9,9 +9,10 @@ void display_ncurses(
     size_t username_length, 
     size_t mail_length, 
     size_t password_lenth, 
-    size_t *display_time) 
+    ssize_t display_time)
 {
     initscr();
+    fprintf(stderr, "\ndisplay time = %ld", display_time);
     int window_width = website_length + username_length + mail_length + password_lenth + 6;
     int window_height = (password_manager.count + 1) * 2;
     WINDOW* win = newwin(3, window_width, 0, 0);
@@ -34,29 +35,12 @@ void display_ncurses(
         mvwprintw(passwin, 1, website_length + username_length + mail_length + 3, "|%s", password.password);
         wrefresh(passwin);
     }
-    
-    sleep(3);
-    int x = getch();
+
+    if (display_time >= 0) {
+        sleep(display_time);
+    } else {
+        int x = getch();
+    }
     
     endwin();
-}
-
-
-void display_password(c_password password,
-                      size_t password_index,
-                      size_t website_length,
-                      size_t username_length,
-                      size_t mail_length,
-                      size_t password_lenth,
-                      size_t* display_time) {
-    int window_width = website_length + username_length + mail_length + password_lenth + 6;
-    WINDOW* passwin = newwin(3, window_width, (password_index + 1) * 2, 0);
-    refresh();
-    box(passwin, 0, 0);
-    mvwprintw(passwin, 1, 1, "%s", password.website);
-    mvwprintw(passwin, 1, website_length + 1, "|%s", password.username);
-    mvwprintw(passwin, 1, website_length + username_length + 2, "|%s", !password.mail ? password.mail : "\0");
-    mvwprintw(passwin, 1, website_length + username_length + mail_length + 3, "|%s", password.password);
-    wrefresh(passwin);
-    
 }
