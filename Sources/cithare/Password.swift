@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Cncurses
 
 #if canImport(CryptoKit)
 import CryptoKit
@@ -118,7 +119,7 @@ func isPasswordsatisfying(_ length: UInt, _ useNumber: Bool, _ useSpecialChar: B
 }
 
 func addSpace(_ n : Int) -> String {
-    return (0..<abs(n)).map({ _ in " "}).joined()
+    (0..<abs(n)).map({ _ in " "}).joined()
 }
 
 
@@ -128,11 +129,11 @@ func addSpace(_ n : Int) -> String {
 func confirmPassword(_ firstMessage : String, _ confirmMessage : String) -> Result<String, Cithare.Add.AddError> {
     let pass_opt  = getpass(firstMessage)
     guard let pass1 = pass_opt else { return .failure(Cithare.Add.AddError.nullPasswordPointer) }
-    let p1 = String.init(cString: pass1)
+    let p1 = String(cString: pass1)
     let pass_opt2 = getpass(confirmMessage)
     guard let pass2 = pass_opt2 else { return .failure(Cithare.Add.AddError.nullPasswordPointer) }
     let p2 = String(cString: pass2)
-    if (p1 != p2) { return  .failure(Cithare.Add.AddError.unmatchPassword) }
+    if p1 != p2 { return .failure(Cithare.Add.AddError.unmatchPassword) }
     return .success(p1)
 }
 
@@ -147,6 +148,38 @@ class Password : Codable {
         self.username = username
         self.mail = mail
         self.password = password
+    }
+    
+    func toCPassword() -> c_password {
+        let websitePtr = UnsafeMutableBufferPointer<CChar>.allocate(capacity: self.website.utf8CString.count)
+        self.website.utf8CString.enumerated().forEach { index, ascii in
+            websitePtr.baseAddress?.advanced(by: index).pointee = ascii
+        }
+        
+        let username = self.username ?? ""
+
+        let userPtr = UnsafeMutableBufferPointer<CChar>.allocate(capacity: username.utf8CString.count)
+        username.utf8CString.enumerated().forEach { index, ascii in
+            userPtr.baseAddress?.advanced(by: index).pointee = ascii
+        }
+        
+        let mail = self.mail ?? ""
+        let mailPtr = UnsafeMutableBufferPointer<CChar>.allocate(capacity: mail.utf8CString.count)
+        mail.utf8CString.enumerated().forEach { index, ascii in
+            mailPtr.baseAddress?.advanced(by: index).pointee = ascii
+        }
+        
+        let passwordPtr = UnsafeMutableBufferPointer<CChar>.allocate(capacity: self.password.utf8CString.count)
+        self.password.utf8CString.enumerated().forEach { index, ascii in
+            passwordPtr.baseAddress?.advanced(by: index).pointee = ascii
+        }
+        
+        
+        return .init(
+            website: websitePtr.baseAddress,
+            username: userPtr.baseAddress,
+            mail: mailPtr.baseAddress,
+            password: passwordPtr.baseAddress)
     }
     
     fileprivate func lineDescription(_ webLineLen : Int, _ userLineLen : Int,
@@ -196,7 +229,7 @@ enum ChangeStatus {
 class PasswordManager : Codable, CustomStringConvertible {
     
     init(formFormated formated: String) {
-        let passwords = formated
+        self.passwords = formated
             .split(separator: "\n")
             .enumerated()
             .compactMap ({ (index, line) in index != 0 && index.isMultiple(of: 2) ? String(line) : nil  })
@@ -207,10 +240,17 @@ class PasswordManager : Codable, CustomStringConvertible {
                 let username = (passwordComponents[1].contains { !$0.isWhitespace } ? passwordComponents[1] : nil).map(String.init)
                 let mail = (passwordComponents[2].contains { !$0.isWhitespace } ? passwordComponents[2] : nil).map(String.init)
                 let password = passwordComponents[3]
-                return Password.init(website: String(website), username: username, mail: mail, password: String(password))
+                return .init(website: String(website), username: username, mail: mail, password: String(password))
             }
-
-        self.passwords = passwords
+    }
+    
+    func toCPasswordManager() -> c_password_manager {
+        let c_pass_ptr = UnsafeMutableBufferPointer<c_password>.allocate(capacity: MemoryLayout<c_password>.size * self.count)
+        self.passwords.enumerated().forEach { index, pass in
+            c_pass_ptr.baseAddress?.advanced(by: index).pointee = pass.toCPassword()
+        }
+        return .init(passwords: c_pass_ptr.baseAddress,
+              count: self.passwords.count)
     }
     
     var description: String {
@@ -231,7 +271,7 @@ class PasswordManager : Codable, CustomStringConvertible {
         }).max(y: mail.count)
         
         let passwordSquareLenght = self.passwords.reduce(0, { result, pass in
-            return result > pass.password.count ? result : pass.password.count
+             result > pass.password.count ? result : pass.password.count
         }).max(y: password.count)
         
         var content = ""
@@ -262,6 +302,50 @@ class PasswordManager : Codable, CustomStringConvertible {
         return content
     }
     
+    func ncursesDisplay(displayTime : Int?) {
+        
+        let website = "website"
+        let username = "username"
+        let mail = "mail"
+        let password = "password"
+        let websiteSquareLenght = self.passwords.reduce(0, { result, pass in
+            max(result, pass.website.count)
+        }).max(y: website.count)
+        let usernameSquareLenght = self.passwords.reduce(0, { result, pass in
+            max(result, pass.username?.count ?? -1)
+        }).max(y: username.count)
+        
+        let mailSquareLenght = self.passwords.reduce(0, { result, pass in
+            result >= pass.mail?.count ?? 0 ? result : pass.mail!.count
+        }).max(y: mail.count)
+        
+        let passwordSquareLenght = self.passwords.reduce(0, { result, pass in
+             result > pass.password.count ? result : pass.password.count
+        }).max(y: password.count)
+
+        let cPasswordManager = self.toCPasswordManager()
+        display_ncurses(cPasswordManager,
+                        websiteSquareLenght,
+                        usernameSquareLenght,
+                        mailSquareLenght,
+                        passwordSquareLenght,
+                        displayTime ?? -1)
+        for index in 0..<cPasswordManager.count {
+            let cPassword = cPasswordManager.passwords.advanced(by: index)
+            cPassword.pointee.password.resetMemory()
+            cPassword.pointee.password.deallocate()
+
+            cPassword.pointee.website.resetMemory()
+            cPassword.pointee.website.deallocate()
+
+            cPassword.pointee.username.resetMemory()
+            cPassword.pointee.username.deallocate()
+
+            cPassword.pointee.mail.resetMemory()
+            cPassword.pointee.mail.deallocate()
+        }
+        cPasswordManager.passwords.deallocate()
+    }
     
     var passwords : [Password]
     
@@ -350,7 +434,6 @@ struct PasswordManagerEncryption {
         guard let passwordManager = try? decoder.decode(PasswordManager.self, from: decryptedData) else { return .failure(.unableToDecryptPasswordManager) }
         return .success(passwordManager)
     }
-    
     
 }
 

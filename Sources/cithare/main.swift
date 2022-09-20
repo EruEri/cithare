@@ -1,7 +1,7 @@
 import Foundation
 import ArgumentParser
 
-#if canImport(APPKit)
+#if canImport(AppKit)
 import AppKit
 #endif
 
@@ -22,7 +22,7 @@ var appFileFullPath : String {
 
 
 struct Cithare : ParsableCommand {
-    static var configuration = CommandConfiguration(version: "0.4.0", subcommands: [
+    static var configuration = CommandConfiguration(version: "0.6.0", subcommands: [
         Cithare.Init.self,
         Cithare.Add.self,
         Cithare.Delete.self,
@@ -59,7 +59,7 @@ struct Cithare : ParsableCommand {
             switch passEncryp.encrypt(passwordManager: password, masterKey: new_pass, atPath: appFileFullPath) {
             case .failure(let error):
                 throw error
-            case .success(_):
+            case .success:
                 print("Master password sucessfully changed")
             }
         }
@@ -329,12 +329,14 @@ extension Cithare {
         static var configuration: CommandConfiguration = CommandConfiguration.init(abstract: "Show password")
         
         
-        @Option(name: [.short, .long, .customLong("dt")], help : "Display duration in seconds" )
-        var displayTime: UInt = 5
+        @Option(name: [.short, .long], help : "Display duration in seconds")
+        var displayTime: UInt?
         
         @Option(name: .shortAndLong, help : "Specify the site")
         var website: String?
         
+        @Flag(name: [.long], help: "Display passwords using ncurses")
+        var ncurses = false
         
         @Flag(name: [.short, .long], help: "Find the website by matching its name")
         var regex = false
@@ -414,9 +416,13 @@ extension Cithare {
                         throw ExitCode.init(1)
                     }
                 } else {
-                    print(passwordManager.description)
-                    sleep(UInt32(self.displayTime))
-                    print("\u{001B}[2J")
+                    if ncurses {
+                        passwordManager.ncursesDisplay(displayTime: self.displayTime.map { Int($0) } )
+                    } else {
+                        print(passwordManager.description)
+                        sleep(UInt32(self.displayTime ?? 5))
+                        print("\u{001B}[2J")
+                    }
                 }
                 return
             }
