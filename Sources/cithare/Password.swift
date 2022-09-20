@@ -126,7 +126,7 @@ func isPasswordsatisfying(_ length: UInt, _ useNumber: Bool, _ useSpecialChar: B
 }
 
 func addSpace(_ n : Int) -> String {
-    return (0..<abs(n)).map({ _ in " "}).joined()
+    (0..<abs(n)).map({ _ in " "}).joined()
 }
 
 
@@ -136,11 +136,11 @@ func addSpace(_ n : Int) -> String {
 func confirmPassword(_ firstMessage : String, _ confirmMessage : String) -> Result<String, Cithare.Add.AddError> {
     let pass_opt  = getpass(firstMessage)
     guard let pass1 = pass_opt else { return .failure(Cithare.Add.AddError.nullPasswordPointer) }
-    let p1 = String.init(cString: pass1)
+    let p1 = String(cString: pass1)
     let pass_opt2 = getpass(confirmMessage)
     guard let pass2 = pass_opt2 else { return .failure(Cithare.Add.AddError.nullPasswordPointer) }
     let p2 = String(cString: pass2)
-    if (p1 != p2) { return  .failure(Cithare.Add.AddError.unmatchPassword) }
+    if p1 != p2 { return .failure(Cithare.Add.AddError.unmatchPassword) }
     return .success(p1)
 }
 
@@ -236,7 +236,7 @@ enum ChangeStatus {
 class PasswordManager : Codable, CustomStringConvertible {
     
     init(formFormated formated: String) {
-        let passwords = formated
+        self.passwords = formated
             .split(separator: "\n")
             .enumerated()
             .compactMap ({ (index, line) in index != 0 && index.isMultiple(of: 2) ? String(line) : nil  })
@@ -249,8 +249,6 @@ class PasswordManager : Codable, CustomStringConvertible {
                 let password = passwordComponents[3]
                 return .init(website: String(website), username: username, mail: mail, password: String(password))
             }
-
-        self.passwords = passwords
     }
     
     func toCPasswordManager() -> c_password_manager {

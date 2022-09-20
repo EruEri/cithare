@@ -18,7 +18,6 @@ void display_ncurses(
     WINDOW* win = newwin(3, window_width, 0, 0);
     refresh();
     box(win, 0, 0);
-    int line = 0;
     mvwprintw(win, 1, 1, "website");
     mvwprintw(win, 1, website_length + 1, "|%s", "username");
     mvwprintw(win, 1, website_length + username_length + 2, "|%s", "mail");

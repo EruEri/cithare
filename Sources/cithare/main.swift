@@ -329,7 +329,7 @@ extension Cithare {
         static var configuration: CommandConfiguration = CommandConfiguration.init(abstract: "Show password")
         
         
-        @Option(name: [.short, .long], help : "Display duration in seconds" )
+        @Option(name: [.short, .long], help : "Display duration in seconds")
         var displayTime: UInt?
         
         @Option(name: .shortAndLong, help : "Specify the site")
