@@ -7,10 +7,6 @@
 
 typedef char* string_option;
 
-WINDOW* initscr();
-int endwin(void);
-
-
 typedef struct c_password {
     char* website;
     string_option username;
