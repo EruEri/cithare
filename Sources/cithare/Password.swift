@@ -14,13 +14,6 @@ import CryptoKit
 import Crypto
 #endif
 
-extension UnsafeMutablePointer where Pointee == CChar {
-    func resetMemory(with value: CChar = 0) {
-        let stringLen = strlen(self)
-        self.assign(repeating: value, count: stringLen)
-    }
-}
-
 
 let upperLetterAsciiRange: ClosedRange<UInt8> = 65...90
 let lowerLetterAsciiRange: ClosedRange<UInt8> = 97...122
