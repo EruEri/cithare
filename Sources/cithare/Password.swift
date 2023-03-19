@@ -19,10 +19,8 @@ import Foundation
 
 #if os(macOS)
 import CryptoKit
-import Darwin
 #else
 import Crypto
-import Glibc
 #endif
 
 
@@ -257,15 +255,37 @@ class PasswordManager : Codable, CustomStringConvertible {
             }
     }
     
-    public func draw(dispayTime: Int?) {
+    public func draw(displayTime: Int?) {
         let passwordString = self.passwords.map { pass in
             pass.lineDescription(websiteSquareLength, usernameSquareLength, mailSquareLength, passwordSquareLength)
         }
+        let count = passwordString.count
         var terminal = Terminal(width: lineWidth)
-        terminal.startWindow()
+        var running = true
         
-        terminal.drawItem(items: passwordString, title: "cithare")
-        sleep(7)
+        terminal.startWindow()
+        var currentLine = 0
+        var oldLine = (passwordString.count - 1) % count
+        var input = "    "
+        while running {
+            if oldLine != currentLine {
+                oldLine = currentLine
+                terminal.drawItem(items: passwordString, startAt: currentLine, title: "cithare")
+            }
+            read(STDIN_FILENO, &input , 1)
+            switch input.first {
+            case "q":
+                running = false
+            case "i":
+                currentLine = (currentLine + 1) % count
+            case "k":
+                currentLine = (currentLine - 1) % count
+            default:
+                break
+            }
+        }
+        
+        
         terminal.endWindow()
     }
     
@@ -281,19 +301,19 @@ class PasswordManager : Codable, CustomStringConvertible {
         
         content.append(website)
         content.append(addSpace(websiteSquareLength - website.count))
-        content.append(Self.VERTICAL_LINE)
+        content.append("|")
         
         content.append(username)
         content.append(addSpace(usernameSquareLength - (username.count) ))
-        content.append(Self.VERTICAL_LINE)
+        content.append("|")
         
         content.append(mail)
         content.append(addSpace(mailSquareLength - (mail.count) ))
-        content.append(Self.VERTICAL_LINE)
+        content.append("|")
         
         content.append(password)
         content.append(addSpace(passwordSquareLength - password.count))
-        content.append(Self.VERTICAL_LINE + "\n")
+        content.append("|\n")
         
         
         for _ in (0..<websiteSquareLength + mailSquareLength + usernameSquareLength + passwordSquareLength + 4) {
@@ -398,29 +418,3 @@ struct PasswordManagerEncryption {
     }
     
 }
-
-
-
-//if #available(macOS 12.0, *) {
-//    let masterKey = "MasterPass"
-//    func addPassword(){
-//        let passWord : Password = .init(website: "Nautiljon.fr", username: "Hello", mail: "you@me.mail", password: "Trymefirst123")
-//        let pm = PasswordManager()
-//        pm.addPassword(password: passWord)
-//        let pse = PasswordManagerEncryption.init()
-//        print(pse.encrypt(passwordManager: pm, masterKey: masterKey, atPath: appFileFullPath))
-//    }
-//
-//    func decrypt(){
-//        let pse = PasswordManagerEncryption.init()
-//        switch pse.decrypt(masterKey: masterKey, atPath: appFileFullPath) {
-//        case .failure(let error):
-//            print("\(error)")
-//        case .success(let passwordManager):
-//            print("\(passwordManager)")
-//        }
-//    }
-//
-//    addPassword()
-//    decrypt()
-//}

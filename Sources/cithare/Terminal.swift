@@ -41,6 +41,9 @@ struct Terminal {
     
     public var width: Int = -1
     
+    private var termiosOld: termios
+    private var termiosNew: termios
+    
     private var _width: Int {
         let column = size.column
         return min(column, max(width, 0))
@@ -57,8 +60,13 @@ struct Terminal {
     
     init(width: Int?) {
         self.started = false
+        self.termiosNew = .init()
+        self.termiosOld = .init()
+        tcgetattr(STDIN_FILENO, &self.termiosOld)
+        
         let column = size.column
         self.width = width.map { w in min(column, max(w, 0)) } ?? column
+        
     }
     init() {
         self.init(width: nil)
@@ -68,12 +76,25 @@ struct Terminal {
         if flush { fflush(stdout) }
     }
     
-    private func startWindowedSession() {
+    private mutating func enableRawMode() {
+        self.termiosNew.c_lflag &= UInt(bitPattern: Int( ~(ECHO | ICANON) ));
+        tcsetattr(STDIN_FILENO, TCSAFLUSH, &self.termiosNew)
+    }
+    
+    private mutating func disableRawMode() {
+        tcsetattr(STDIN_FILENO, TCSAFLUSH, &self.termiosOld)
+    }
+    
+    private mutating func startWindowedSession(rawMode: Bool = true) {
+        if rawMode {
+            enableRawMode()
+        }
         write(STDOUT_FILENO, Self.NEW_SCREEN_BUFF_SEQ, Self.NEW_SCREEN_BUFF_SEQ.count)
     }
     
-    private func endWindowedSession() {
+    private mutating func endWindowedSession() {
         write(STDOUT_FILENO, Self.END_SRCEEN_BUFF_SEQ, Self.END_SRCEEN_BUFF_SEQ.count)
+        disableRawMode()
     }
     
     private func drawHorizotalChar(_ flush: Bool = true) {
@@ -91,9 +112,8 @@ struct Terminal {
     
     private func drawFirstLine(title: String = "") {
         drawString(Self.UPPER_LEFT_CORNER, flush: false)
-        let offset = 1
-        for n in offset..<(self.width - 1) {
-            let currentCharIndex = n - offset
+        for n in 0..<(self.width - 1) {
+            let currentCharIndex = n
             
             if currentCharIndex < title.count {
                 let currentChar = title.utf8CString[currentCharIndex]
@@ -152,7 +172,7 @@ struct Terminal {
     
     func drawItem(items: [String], startAt: Int = 0, title: String = "") {
         guard started else { return }
-        
+        let elementCount = items.count
         self.redrawEmpty()
         var currentLine = 0
         if startAt == 0 {
@@ -164,7 +184,7 @@ struct Terminal {
         var size = self.size
         let numberOfDrawLine = min( items.count - startAt, (size.line - currentLine) / 2 )
         for n in 0..<numberOfDrawLine {
-            let effectiveIndex = n + startAt
+            let effectiveIndex = (n + startAt) % elementCount
             let currentStringLine = items[effectiveIndex]
             drawString(currentStringLine)
             nextLine(currentLine: currentLine)

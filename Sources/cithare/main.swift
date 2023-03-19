@@ -355,7 +355,6 @@ extension Cithare {
         
         @Flag(name: [.short, .long], help: "Find the website by matching its name")
         var regex = false
-        
 
         @Option(name: [.short, .long], help: "Output file")
         var output: String?
@@ -432,7 +431,7 @@ extension Cithare {
                         throw ExitCode.init(1)
                     }
                 }
-                passwordManager.draw(dispayTime: Int(self.displayTime ?? 5) )
+                passwordManager.draw(displayTime: self.displayTime.map { n in Int(n) } )
             }
         }
     }
