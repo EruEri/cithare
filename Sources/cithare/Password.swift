@@ -1,17 +1,29 @@
-//
-//  File.swift
-//  
-//
-//  Created by EruEri on 14/03/2022.
-//
+// /////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                            //
+// This file is part of cithare                                                               //
+// Copyright (C) 2023 Yves Ndiaye                                                             //
+//                                                                                            //
+// cithare is free software: you can redistribute it and/or modify it under the terms         //
+// of the GNU General Public License as published by the Free Software Foundation,            //
+// either version 3 of the License, or (at your option) any later version.                    //
+//                                                                                            //
+// cithare is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;       //
+// without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR           //
+// PURPOSE.  See the GNU General Public License for more details.                             //
+// You should have received a copy of the GNU General Public License along with ciathare.     //
+// If not, see <http://www.gnu.org/licenses/>.                                                //
+//                                                                                            //
+// /////////////////////////////////////////////////////////////////////////////////////////////
 
 import Foundation
 import Cncurses
 
-#if canImport(CryptoKit)
+#if os(macOS)
 import CryptoKit
+import Darwin
 #else
 import Crypto
+import Glibc
 #endif
 
 
@@ -184,24 +196,24 @@ class Password : Codable {
     
     fileprivate func lineDescription(_ webLineLen : Int, _ userLineLen : Int,
                                      _ mailLineLen : Int, _ passLineLen : Int) -> String {
+        
         var content = ""
+        content.append(Terminal.VERTICAL_LINE)
         content.append(self.website)
         content.append(addSpace(webLineLen - self.website.count))
-        content.append("|")
+        content.append(Terminal.VERTICAL_LINE)
         
         content.append(self.username ?? "")
         content.append(addSpace(userLineLen - (self.username?.count ?? 0) ))
-        content.append("|")
+        content.append(Terminal.VERTICAL_LINE)
         
         content.append(self.mail ?? "")
         content.append(addSpace(mailLineLen - (self.mail?.count ?? 0) ))
-        content.append("|")
+        content.append(Terminal.VERTICAL_LINE)
         
         content.append(self.password)
         content.append(addSpace(passLineLen - self.password.count))
-        content.append("|\n")
-        (0..<webLineLen + mailLineLen + userLineLen + passLineLen + 4).forEach { _ in content.append("-") }
-        content.append("\n")
+        content.append(Terminal.VERTICAL_LINE)
         return content
     }
 }
@@ -228,6 +240,40 @@ enum ChangeStatus {
 
 class PasswordManager : Codable, CustomStringConvertible {
     
+    private static let VERTICAL_LINE = "│"
+    
+    private var websiteSquareLength: Int {
+        let website = "website"
+        return passwords.reduce(0, { result, pass in
+            max(result, pass.website.count)
+        }).max(y: website.count)
+    }
+    
+    private var usernameSquareLength: Int {
+        let username = "username"
+        return self.passwords.reduce(0, { result, pass in
+            max(result, pass.username?.count ?? -1)
+        }).max(y: username.count)
+    }
+    private var mailSquareLength: Int {
+        let mail = "mail"
+        return self.passwords.reduce(0, { result, pass in
+            result >= pass.mail?.count ?? 0 ? result : pass.mail!.count
+        }).max(y: mail.count)
+    }
+    
+    private var passwordSquareLength: Int {
+        let password = "password"
+        return self.passwords.reduce(0, { result, pass in
+             result > pass.password.count ? result : pass.password.count
+        }).max(y: password.count)
+    }
+    
+    private var lineWidth: Int {
+        websiteSquareLength + mailSquareLength + usernameSquareLength + passwordSquareLength + 5
+    }
+
+    
     init(formFormated formated: String) {
         self.passwords = formated
             .split(separator: "\n")
@@ -253,51 +299,54 @@ class PasswordManager : Codable, CustomStringConvertible {
               count: self.passwords.count)
     }
     
+    public func draw(dispayTime: Int?) {
+        let passwordString = self.passwords.map { pass in
+            pass.lineDescription(websiteSquareLength, usernameSquareLength, mailSquareLength, passwordSquareLength)
+        }
+        var terminal = Terminal(width: lineWidth)
+        terminal.startWindow()
+        
+        terminal.drawItem(items: passwordString, title: "cithare")
+        sleep(7)
+        terminal.endWindow()
+    }
+    
+    
     var description: String {
         
         let website = "website"
         let username = "username"
         let mail = "mail"
         let password = "password"
-        let websiteSquareLenght = self.passwords.reduce(0, { result, pass in
-            max(result, pass.website.count)
-        }).max(y: website.count)
-        let usernameSquareLenght = self.passwords.reduce(0, { result, pass in
-            max(result, pass.username?.count ?? -1)
-        }).max(y: username.count)
-        
-        let mailSquareLenght = self.passwords.reduce(0, { result, pass in
-            result >= pass.mail?.count ?? 0 ? result : pass.mail!.count
-        }).max(y: mail.count)
-        
-        let passwordSquareLenght = self.passwords.reduce(0, { result, pass in
-             result > pass.password.count ? result : pass.password.count
-        }).max(y: password.count)
         
         var content = ""
         
         content.append(website)
-        content.append(addSpace(websiteSquareLenght - website.count))
-        content.append("|")
+        content.append(addSpace(websiteSquareLength - website.count))
+        content.append(Self.VERTICAL_LINE)
         
         content.append(username)
-        content.append(addSpace(usernameSquareLenght - (username.count) ))
-        content.append("|")
+        content.append(addSpace(usernameSquareLength - (username.count) ))
+        content.append(Self.VERTICAL_LINE)
         
         content.append(mail)
-        content.append(addSpace(mailSquareLenght - (mail.count) ))
-        content.append("|")
+        content.append(addSpace(mailSquareLength - (mail.count) ))
+        content.append(Self.VERTICAL_LINE)
         
         content.append(password)
-        content.append(addSpace(passwordSquareLenght - password.count))
-        content.append("|\n")
+        content.append(addSpace(passwordSquareLength - password.count))
+        content.append(Self.VERTICAL_LINE + "\n")
         
         
-        (0..<websiteSquareLenght + mailSquareLenght + usernameSquareLenght + passwordSquareLenght + 4).forEach { _ in content.append("-") }
+        for _ in (0..<websiteSquareLength + mailSquareLength + usernameSquareLength + passwordSquareLength + 4) {
+            content.append("-")
+        }
         content.append("\n")
         
         self.passwords.forEach { pass in
-            content.append( pass.lineDescription(websiteSquareLenght, usernameSquareLenght, mailSquareLenght, passwordSquareLenght) )
+            content.append(
+                pass.lineDescription(websiteSquareLength, usernameSquareLength, mailSquareLength, passwordSquareLength)
+            )
         }
         return content
     }
