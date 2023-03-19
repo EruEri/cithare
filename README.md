@@ -4,36 +4,11 @@ cithare is a command line password manager
 
 ## How to build
 
-- macOS
-	* Install ncsurses
-
-	```
-	$ brew install ncurses
-    $ export CPATH="$CPATH:$(brew --prefix)/include"
-    $ export LIBRARY_PATH="$LIBRARY_PATH:$(brew --prefix)/lib"
-	```
-    * Build
-    
-    ```
-    $ git clone https://github.com/EruEri/cithare
-    $ cd cithare
-    $ swift build -c release
-    ```
-    
-- Fedora
-    * Install ncsurses
-    
-    ```
-    $ sudo dnf install ncurses ncurses-devel
-    ```
-    
-    * Build
-    
-    ```
-    $ git clone https://github.com/EruEri/cithare
-    $ cd cithare
-    $ swift build -c release
-    ```
+```
+$ git clone https://github.com/EruEri/cithare
+$ cd cithare
+$ swift build -c release
+```
 
 ## Initialization
 

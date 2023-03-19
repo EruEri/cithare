@@ -353,9 +353,6 @@ extension Cithare {
         @Option(name: .shortAndLong, help : "Specify the site")
         var website: String?
         
-        @Flag(name: [.long], help: "Display passwords using ncurses")
-        var ncurses = false
-        
         @Flag(name: [.short, .long], help: "Find the website by matching its name")
         var regex = false
         
@@ -423,7 +420,8 @@ extension Cithare {
                         print("Cannot find a password for the given website")
                         throw ExitCode.init(1)
                     }
-                } #endif 
+                }
+                #endif
                 if let output = output {
                     let fileManager = FileManager.default
                     if fileManager.createFile(atPath: output, contents: passwordManager.description.data(using: .utf8)) {
@@ -433,17 +431,8 @@ extension Cithare {
                         print("Unable to create the output file")
                         throw ExitCode.init(1)
                     }
-                } else {
-                    if ncurses {
-                        passwordManager.ncursesDisplay(displayTime: self.displayTime.map { Int($0) } )
-                    } else {
-                        passwordManager.draw(dispayTime: Int(self.displayTime ?? 5) )
-//                        print(passwordManager.description)
-//                        sleep(UInt32(self.displayTime ?? 5))
-//                        print("\u{001B}[2J")
-                    }
                 }
-                return
+                passwordManager.draw(dispayTime: Int(self.displayTime ?? 5) )
             }
         }
     }
