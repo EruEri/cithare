@@ -22,7 +22,7 @@ import Darwin
 import Glibc
 #endif
 
-struct Size {
+struct Size: Equatable {
     public var line : Int
     public var column: Int
 }

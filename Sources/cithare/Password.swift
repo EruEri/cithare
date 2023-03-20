@@ -263,22 +263,27 @@ class PasswordManager : Codable, CustomStringConvertible {
         var terminal = Terminal(width: lineWidth)
         var running = true
         
+        var oldSize = terminal.size
         terminal.startWindow()
         var currentLine = 0
         var oldLine = (passwordString.count - 1) % count
-        var input = "    "
         while running {
+            let newSize = terminal.size
+            var input: UInt8 = 0
             if oldLine != currentLine {
                 oldLine = currentLine
                 terminal.drawItem(items: passwordString, startAt: currentLine, title: "cithare")
+            } else if oldSize != newSize {
+                oldSize = newSize
+                terminal.drawItem(items: passwordString, startAt: currentLine, title: "cithare")
             }
             read(STDIN_FILENO, &input , 1)
-            switch input.first {
-            case "q":
+            switch input {
+            case Character("q").asciiValue!:
                 running = false
-            case "i":
+            case  Character("i").asciiValue!:
                 currentLine = (currentLine + 1) % count
-            case "k":
+            case Character("k").asciiValue!:
                 currentLine = (currentLine - 1) % count
             default:
                 break
