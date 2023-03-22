@@ -431,7 +431,7 @@ extension Cithare {
                         throw ExitCode.init(1)
                     }
                 }
-                passwordManager.draw(displayTime: self.displayTime.map { n in Int(n) } )
+                passwordManager.display(displayTime: self.displayTime.map { n in UInt(n) } )
             }
         }
     }

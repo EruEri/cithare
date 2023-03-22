@@ -255,12 +255,30 @@ class PasswordManager : Codable, CustomStringConvertible {
             }
     }
     
-    public func draw(displayTime: Int?) {
+    public func display(displayTime: UInt?) {
+        var terminal = Terminal(width: lineWidth)
+        let thread = Thread(block: {
+            self.draw(terminal: &terminal)
+        })
+        
+        switch displayTime {
+        case .none:
+            self.draw(terminal: &terminal)
+        case .some(let dt):
+            thread.start()
+            sleep( UInt32(dt) )
+            thread.cancel()
+            terminal.endWindow()
+            
+        }
+    }
+    
+    private func draw(terminal: inout Terminal) {
         let passwordString = self.passwords.map { pass in
             pass.lineDescription(websiteSquareLength, usernameSquareLength, mailSquareLength, passwordSquareLength)
         }
         let count = passwordString.count
-        var terminal = Terminal(width: lineWidth)
+        
         var running = true
         
         var oldSize = terminal.size
@@ -293,6 +311,8 @@ class PasswordManager : Codable, CustomStringConvertible {
         }
         
         terminal.endWindow()
+        
+        Thread.exit()
     }
     
     

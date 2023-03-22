@@ -1,4 +1,4 @@
-//********************************************************************************************//
+// /////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                            //
 // This file is part of cithare                                                               //
 // Copyright (C) 2023 Yves Ndiaye                                                             //
@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU General Public License along with ciathare.     //
 // If not, see <http://www.gnu.org/licenses/>.                                                //
 //                                                                                            //
-//********************************************************************************************//
+// /////////////////////////////////////////////////////////////////////////////////////////////
 
 import Foundation
 import ArgumentParser
@@ -196,7 +196,6 @@ struct Terminal {
             nextLine(currentLine: currentLine)
         }
         // currentLine points to the next line to draw: Therefore, this line is empty
-        var size = self.size
         let numberOfDrawLine = min( items.count - startAt, (size.line - currentLine) / 2 )
         for n in 0..<numberOfDrawLine {
             let effectiveIndex = (n + startAt) % elementCount
@@ -208,7 +207,5 @@ struct Terminal {
             nextLine(currentLine: currentLine)
             currentLine += 1
         }
-        
-        
     }
 }
