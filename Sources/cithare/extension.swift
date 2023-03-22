@@ -18,9 +18,17 @@
 import Foundation
 
 extension Int {
+    
+    public var abs: Self {
+         Swift.abs(self)
+    }
+    
+    
     public func max(y: Self) -> Self {
         return Swift.max(self, y)
     }
+    
+
 }
 
 extension UnsafeMutablePointer where Pointee == CChar {

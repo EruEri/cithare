@@ -1,4 +1,4 @@
-// /////////////////////////////////////////////////////////////////////////////////////////////
+//********************************************************************************************//
 //                                                                                            //
 // This file is part of cithare                                                               //
 // Copyright (C) 2023 Yves Ndiaye                                                             //
@@ -13,9 +13,10 @@
 // You should have received a copy of the GNU General Public License along with ciathare.     //
 // If not, see <http://www.gnu.org/licenses/>.                                                //
 //                                                                                            //
-// /////////////////////////////////////////////////////////////////////////////////////////////
+//********************************************************************************************//
 
 import Foundation
+import ArgumentParser
 #if os(macOS)
 import Darwin
 #else
@@ -25,6 +26,21 @@ import Glibc
 struct Size: Equatable {
     public var line : Int
     public var column: Int
+}
+
+private var originalTermios: termios = .init()
+
+private func saveTerminalOriginalState() {
+    tcgetattr(STDIN_FILENO, &originalTermios)
+}
+
+private var restoreTermiosCallback: @convention(c) () -> Void = {
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &originalTermios)
+}
+
+
+private func registerRestoreTerm() {
+    atexit( restoreTermiosCallback )
 }
 
 struct Terminal {
@@ -41,7 +57,6 @@ struct Terminal {
     
     public var width: Int = -1
     
-    private var termiosOld: termios
     private var termiosNew: termios
     
     private var _width: Int {
@@ -61,8 +76,6 @@ struct Terminal {
     init(width: Int?) {
         self.started = false
         self.termiosNew = .init()
-        self.termiosOld = .init()
-        tcgetattr(STDIN_FILENO, &self.termiosOld)
         
         let column = size.column
         self.width = width.map { w in min(column, max(w, 0)) } ?? column
@@ -77,12 +90,14 @@ struct Terminal {
     }
     
     private mutating func enableRawMode() {
-        self.termiosNew.c_lflag &= UInt(bitPattern: Int( ~(ECHO | ICANON) ));
+        saveTerminalOriginalState()
+        registerRestoreTerm()
+        self.termiosNew.c_lflag &= UInt(bitPattern: Int( ~(ECHO | ICANON | ISIG) ));
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &self.termiosNew)
     }
     
     private mutating func disableRawMode() {
-        tcsetattr(STDIN_FILENO, TCSAFLUSH, &self.termiosOld)
+        restoreTermiosCallback()
     }
     
     private mutating func startWindowedSession(rawMode: Bool = true) {

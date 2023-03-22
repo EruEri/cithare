@@ -235,7 +235,7 @@ class PasswordManager : Codable, CustomStringConvertible {
     }
     
     private var lineWidth: Int {
-        websiteSquareLength + mailSquareLength + usernameSquareLength + passwordSquareLength + 5
+        websiteSquareLength + mailSquareLength + usernameSquareLength + passwordSquareLength + 4
     }
 
     
@@ -266,7 +266,8 @@ class PasswordManager : Codable, CustomStringConvertible {
         var oldSize = terminal.size
         terminal.startWindow()
         var currentLine = 0
-        var oldLine = (passwordString.count - 1) % count
+        var oldLine = ( (count - 1) % count ).abs
+
         while running {
             let newSize = terminal.size
             var input: UInt8 = 0
@@ -275,6 +276,7 @@ class PasswordManager : Codable, CustomStringConvertible {
                 terminal.drawItem(items: passwordString, startAt: currentLine, title: "cithare")
             } else if oldSize != newSize {
                 oldSize = newSize
+                terminal.width = min(lineWidth, newSize.column)
                 terminal.drawItem(items: passwordString, startAt: currentLine, title: "cithare")
             }
             read(STDIN_FILENO, &input , 1)
@@ -284,12 +286,11 @@ class PasswordManager : Codable, CustomStringConvertible {
             case  Character("i").asciiValue!:
                 currentLine = (currentLine + 1) % count
             case Character("k").asciiValue!:
-                currentLine = (currentLine - 1) % count
+                currentLine = ((currentLine - 1) % count).abs
             default:
                 break
             }
         }
-        
         
         terminal.endWindow()
     }
@@ -364,7 +365,7 @@ class PasswordManager : Codable, CustomStringConvertible {
     }
     
     func findIndex(predicate: (Password) -> Bool) -> Int? {
-        for (i ,password) in passwords.enumerated() {
+        for (i, password) in passwords.enumerated() {
             if predicate(password) { return i }
         }
         return nil
