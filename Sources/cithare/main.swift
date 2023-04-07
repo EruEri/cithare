@@ -40,7 +40,7 @@ var appFileFullPath : String {
 
 
 struct Cithare : ParsableCommand {
-    static var configuration = CommandConfiguration(version: "0.6.0", subcommands: [
+    static var configuration = CommandConfiguration(version: "0.7.0", subcommands: [
         Cithare.Init.self,
         Cithare.Add.self,
         Cithare.Delete.self,
