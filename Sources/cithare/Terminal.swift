@@ -162,10 +162,10 @@ struct Terminal {
         setCursorAt(line: currentLine + 1, column: 0, flush: flush)
     }
     
-    func drawString(_ s: String, startFrom: Int = 0, flush: Bool = true) {
+    func drawString(_ s: String, horizontalOffset: Int = 0, flush: Bool = true) {
         guard started else { return }
-        let stringLen = min(startFrom + s.count, self._width)
-        let startIndex = s.index(s.startIndex, offsetBy: startFrom)
+        let stringLen = min(horizontalOffset + s.count, self._width)
+        let startIndex = s.index(s.startIndex, offsetBy: horizontalOffset)
         let endIndex = s.index(startIndex, offsetBy: stringLen, limitedBy: s.endIndex) ?? s.endIndex
         let subString = String(s[startIndex..<endIndex])
         print("\(subString)", terminator: "")
@@ -189,22 +189,22 @@ struct Terminal {
         flushOut(true)
     }
     
-    func drawItem(items: [String], startAt: Int = 0, startFrom: Int = 0, title: String = "") {
+    func drawItem(items: [String], verticalOffset: Int = 0, horizontalOffset: Int = 0, title: String = "") {
         guard started else { return }
         let elementCount = items.count
         self.redrawEmpty()
         var currentLine = 0
-        if startAt == 0 {
+        if verticalOffset == 0 {
             currentLine = 1
             drawFirstLine(title: title)
             nextLine(currentLine: currentLine)
         }
         // currentLine points to the next line to draw: Therefore, this line is empty
-        let numberOfDrawLine = min( items.count - startAt, (size.line - currentLine) / 2 )
+        let numberOfDrawLine = min( items.count - verticalOffset, (size.line - currentLine) / 2 )
         for n in 0..<numberOfDrawLine {
-            let effectiveIndex = (n + startAt) % elementCount
+            let effectiveIndex = (n + verticalOffset) % elementCount
             let currentStringLine = items[effectiveIndex]
-            drawString(currentStringLine, startFrom: startFrom)
+            drawString(currentStringLine, horizontalOffset: horizontalOffset)
             nextLine(currentLine: currentLine)
             currentLine += 1
             drawFullHorizonalLine()

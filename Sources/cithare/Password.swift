@@ -289,7 +289,7 @@ class PasswordManager : Codable, CustomStringConvertible {
         var horizontalOldValue = 0
         
         func increaseHorizontalOffset(){
-            if horizontalOffset < terminal.width - 1 {
+            if horizontalOffset < (terminal.size.column - 1 - lineWidth).abs {
                 horizontalOffset += 1
             }
         }
@@ -307,15 +307,15 @@ class PasswordManager : Codable, CustomStringConvertible {
             if oldLine != currentLine {
                 oldLine = currentLine
                 terminal.width = min(lineWidth, newSize.column)
-                terminal.drawItem(items: passwordString, startAt: currentLine, startFrom: horizontalOffset, title: "cithare")
+                terminal.drawItem(items: passwordString, verticalOffset: currentLine, horizontalOffset: horizontalOffset, title: "cithare")
             } else if oldSize != newSize {
                 oldSize = newSize
                 terminal.width = min(lineWidth, newSize.column)
-                terminal.drawItem(items: passwordString, startAt: currentLine, startFrom: horizontalOffset, title: "cithare")
+                terminal.drawItem(items: passwordString, verticalOffset: currentLine, horizontalOffset: horizontalOffset, title: "cithare")
             } else if horizontalOffset != horizontalOldValue {
                 horizontalOldValue = horizontalOffset
                 terminal.width = min(lineWidth, newSize.column)
-                terminal.drawItem(items: passwordString, startAt: currentLine, startFrom: horizontalOffset, title: "cithare")
+                terminal.drawItem(items: passwordString, verticalOffset: currentLine, horizontalOffset: horizontalOffset, title: "cithare")
             }
             
             read(STDIN_FILENO, &input , 1)
