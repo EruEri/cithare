@@ -278,7 +278,7 @@ class PasswordManager : Codable, CustomStringConvertible {
     }
     
     private func draw(showPassword: Bool, terminal: inout Terminal, killThread: Bool = false) {
-        let passwordString = self.passwords.map { pass in
+        let passwordString = self.passwords.map { pass -> String in
             if !showPassword { pass.hidePassword() }
             return pass.lineDescription(websiteSquareLength, usernameSquareLength, mailSquareLength, passwordSquareLength)
         }

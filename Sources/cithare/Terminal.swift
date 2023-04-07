@@ -68,7 +68,11 @@ struct Terminal {
     /// Terminal size
     public var size: Size {
         var winsize: winsize = .init()
-        _ = ioctl(STDIN_FILENO, TIOCGWINSZ, &winsize)
+        #if canImport(Darwin)
+            _ = ioctl(STDIN_FILENO, TIOCGWINSZ, &winsize)
+        #elseif canImport(Glibc)
+            _ = ioctl(STDIN_FILENO, UInt.init(truncatingIfNeeded: TIOCGWINSZ), &winsize)
+        #endif
         return .init(line: Int(winsize.ws_row), column: Int( winsize.ws_col) )
     }
     
@@ -92,7 +96,11 @@ struct Terminal {
     private mutating func enableRawMode() {
         saveTerminalOriginalState()
         registerRestoreTerm()
-        self.termiosNew.c_lflag &= UInt(bitPattern: Int( ~(ECHO | ICANON | ISIG) ));
+        #if canImport(Darwin)
+            self.termiosNew.c_lflag &= UInt(bitPattern: ~(ECHO | ICANON | ISIG) );
+        #elseif canImport(Glibc)
+            self.termiosNew.c_lflag &= UInt32(bitPattern: ~(ECHO | ICANON | ISIG) );
+        #endif
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &self.termiosNew)
     }
     
