@@ -289,7 +289,7 @@ class PasswordManager : Codable, CustomStringConvertible {
         var horizontalOldValue = 0
         
         func increaseHorizontalOffset(){
-            if horizontalOffset < (terminal.size.column - 1 - lineWidth).abs {
+            if horizontalOffset + lineWidth > (terminal.size.column) && horizontalOffset < (terminal.size.column - lineWidth).abs {
                 horizontalOffset += 1
             }
         }

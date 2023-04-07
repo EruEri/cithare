@@ -182,7 +182,7 @@ struct Terminal {
         
         setCursorAt(line: 0, column: 0, flush: true)
         let size = size
-        for _ in 0..<(size.line * self.width) {
+        for _ in 0..<(size.line * size.column) {
             drawString(" ", flush: false)
         }
         setCursorAt(line: 0, column: 0)
