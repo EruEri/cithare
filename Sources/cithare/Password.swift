@@ -289,7 +289,7 @@ class PasswordManager : Codable, CustomStringConvertible {
         var horizontalOldValue = 0
         
         func increaseHorizontalOffset(){
-            if horizontalOffset + terminal.width >= passwordString.count {
+            if horizontalOffset < terminal.width - 1 {
                 horizontalOffset += 1
             }
         }
@@ -306,6 +306,7 @@ class PasswordManager : Codable, CustomStringConvertible {
             
             if oldLine != currentLine {
                 oldLine = currentLine
+                terminal.width = min(lineWidth, newSize.column)
                 terminal.drawItem(items: passwordString, startAt: currentLine, startFrom: horizontalOffset, title: "cithare")
             } else if oldSize != newSize {
                 oldSize = newSize

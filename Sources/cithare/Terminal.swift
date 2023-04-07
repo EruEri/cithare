@@ -118,7 +118,7 @@ struct Terminal {
     
     private func drawFullHorizonalLine() {
         drawString(Self.VERTICAL_LINE, flush: false)
-        for _ in 0 ..< (width - 2) {
+        for _ in 0 ..< (self._width - 2) {
             drawString(Self.HORIZONTAL_LINE, flush: false)
         }
         drawString(Self.VERTICAL_LINE, flush: false)
@@ -127,7 +127,7 @@ struct Terminal {
     
     private func drawFirstLine(title: String = "") {
         drawString(Self.UPPER_LEFT_CORNER, flush: false)
-        for n in 0..<(self.width - 1) {
+        for n in 0..<(self._width - 1) {
             let currentCharIndex = n
             
             if currentCharIndex < title.count {
@@ -166,7 +166,7 @@ struct Terminal {
         guard started else { return }
         let stringLen = min(startFrom + s.count, self._width)
         let startIndex = s.index(s.startIndex, offsetBy: startFrom)
-        let endIndex = s.index(s.startIndex, offsetBy: stringLen, limitedBy: s.endIndex) ?? s.endIndex
+        let endIndex = s.index(startIndex, offsetBy: stringLen, limitedBy: s.endIndex) ?? s.endIndex
         let subString = String(s[startIndex..<endIndex])
         print("\(subString)", terminator: "")
         flushOut(flush)
