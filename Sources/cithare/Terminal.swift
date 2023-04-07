@@ -97,7 +97,7 @@ struct Terminal {
         saveTerminalOriginalState()
         registerRestoreTerm()
         #if canImport(Darwin)
-            self.termiosNew.c_lflag &= UInt(bitPattern: ~(ECHO | ICANON | ISIG) );
+            self.termiosNew.c_lflag &= UInt(bitPattern: Int( ~(ECHO | ICANON | ISIG) ));
         #elseif canImport(Glibc)
             self.termiosNew.c_lflag &= UInt32(bitPattern: ~(ECHO | ICANON | ISIG) );
         #endif
