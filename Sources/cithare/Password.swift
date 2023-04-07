@@ -285,18 +285,38 @@ class PasswordManager : Codable, CustomStringConvertible {
         terminal.startWindow()
         var currentLine = 0
         var oldLine = ( (count - 1) % count ).abs
+        var horizontalOffset = 0
+        var horizontalOldValue = 0
+        
+        func increaseHorizontalOffset(){
+            if horizontalOffset + terminal.width >= passwordString.count {
+                horizontalOffset += 1
+            }
+        }
+        
+        func decreaseHorizontalOffset() {
+            if horizontalOffset > 0 {
+                horizontalOffset -= 1
+            }
+        }
 
         while running {
             let newSize = terminal.size
             var input: UInt8 = 0
+            
             if oldLine != currentLine {
                 oldLine = currentLine
-                terminal.drawItem(items: passwordString, startAt: currentLine, title: "cithare")
+                terminal.drawItem(items: passwordString, startAt: currentLine, startFrom: horizontalOffset, title: "cithare")
             } else if oldSize != newSize {
                 oldSize = newSize
                 terminal.width = min(lineWidth, newSize.column)
-                terminal.drawItem(items: passwordString, startAt: currentLine, title: "cithare")
+                terminal.drawItem(items: passwordString, startAt: currentLine, startFrom: horizontalOffset, title: "cithare")
+            } else if horizontalOffset != horizontalOldValue {
+                horizontalOldValue = horizontalOffset
+                terminal.width = min(lineWidth, newSize.column)
+                terminal.drawItem(items: passwordString, startAt: currentLine, startFrom: horizontalOffset, title: "cithare")
             }
+            
             read(STDIN_FILENO, &input , 1)
             switch input {
             case Character("q").asciiValue!:
@@ -305,6 +325,10 @@ class PasswordManager : Codable, CustomStringConvertible {
                 currentLine = (currentLine + 1) % count
             case Character("k").asciiValue!:
                 currentLine = ((currentLine - 1) % count).abs
+            case Character("l").asciiValue!:
+                increaseHorizontalOffset()
+            case Character("j").asciiValue!:
+                decreaseHorizontalOffset()
             default:
                 break
             }

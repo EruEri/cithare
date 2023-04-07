@@ -162,9 +162,13 @@ struct Terminal {
         setCursorAt(line: currentLine + 1, column: 0, flush: flush)
     }
     
-    func drawString(_ s: String, flush: Bool = true) {
+    func drawString(_ s: String, startFrom: Int = 0, flush: Bool = true) {
         guard started else { return }
-        print("\(s)", terminator: "")
+        let stringLen = min(startFrom + s.count, self._width)
+        let startIndex = s.index(s.startIndex, offsetBy: startFrom)
+        let endIndex = s.index(s.startIndex, offsetBy: stringLen, limitedBy: s.endIndex) ?? s.endIndex
+        let subString = String(s[startIndex..<endIndex])
+        print("\(subString)", terminator: "")
         flushOut(flush)
     }
     
@@ -185,7 +189,7 @@ struct Terminal {
         flushOut(true)
     }
     
-    func drawItem(items: [String], startAt: Int = 0, title: String = "") {
+    func drawItem(items: [String], startAt: Int = 0, startFrom: Int = 0, title: String = "") {
         guard started else { return }
         let elementCount = items.count
         self.redrawEmpty()
@@ -200,7 +204,7 @@ struct Terminal {
         for n in 0..<numberOfDrawLine {
             let effectiveIndex = (n + startAt) % elementCount
             let currentStringLine = items[effectiveIndex]
-            drawString(currentStringLine)
+            drawString(currentStringLine, startFrom: startFrom)
             nextLine(currentLine: currentLine)
             currentLine += 1
             drawFullHorizonalLine()
