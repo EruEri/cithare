@@ -1,3 +1,21 @@
+// /////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                            //
+// This file is part of cithare                                                               //
+// Copyright (C) 2023 Yves Ndiaye                                                             //
+//                                                                                            //
+// cithare is free software: you can redistribute it and/or modify it under the terms         //
+// of the GNU General Public License as published by the Free Software Foundation,            //
+// either version 3 of the License, or (at your option) any later version.                    //
+//                                                                                            //
+// cithare is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;       //
+// without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR           //
+// PURPOSE.  See the GNU General Public License for more details.                             //
+// You should have received a copy of the GNU General Public License along with ciathare.     //
+// If not, see <http://www.gnu.org/licenses/>.                                                //
+//                                                                                            //
+// /////////////////////////////////////////////////////////////////////////////////////////////
+
+
 import Foundation
 import ArgumentParser
 
@@ -22,7 +40,7 @@ var appFileFullPath : String {
 
 
 struct Cithare : ParsableCommand {
-    static var configuration = CommandConfiguration(version: "0.6.0", subcommands: [
+    static var configuration = CommandConfiguration(version: "0.7.0", subcommands: [
         Cithare.Init.self,
         Cithare.Add.self,
         Cithare.Delete.self,
@@ -335,15 +353,14 @@ extension Cithare {
         @Option(name: .shortAndLong, help : "Specify the site")
         var website: String?
         
-        @Flag(name: [.long], help: "Display passwords using ncurses")
-        var ncurses = false
-        
         @Flag(name: [.short, .long], help: "Find the website by matching its name")
         var regex = false
-        
 
         @Option(name: [.short, .long], help: "Output file")
         var output: String?
+        
+        @Flag(name: [.long], help: "Display plain password")
+        var showPassword = false
 
         #if os(macOS)
         @Flag(name: [.short, .long], help: "Write the password into the pasteboard")
@@ -405,7 +422,8 @@ extension Cithare {
                         print("Cannot find a password for the given website")
                         throw ExitCode.init(1)
                     }
-                } #endif 
+                }
+                #endif
                 if let output = output {
                     let fileManager = FileManager.default
                     if fileManager.createFile(atPath: output, contents: passwordManager.description.data(using: .utf8)) {
@@ -415,16 +433,8 @@ extension Cithare {
                         print("Unable to create the output file")
                         throw ExitCode.init(1)
                     }
-                } else {
-                    if ncurses {
-                        passwordManager.ncursesDisplay(displayTime: self.displayTime.map { Int($0) } )
-                    } else {
-                        print(passwordManager.description)
-                        sleep(UInt32(self.displayTime ?? 5))
-                        print("\u{001B}[2J")
-                    }
                 }
-                return
+                passwordManager.display(showPassword: self.showPassword, displayTime: self.displayTime.map { n in UInt(n) } )
             }
         }
     }
@@ -448,5 +458,6 @@ extension Cithare {
     }
 
 }
+
 
 Cithare.main()

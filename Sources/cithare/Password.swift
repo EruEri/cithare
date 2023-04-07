@@ -1,14 +1,23 @@
-//
-//  File.swift
-//  
-//
-//  Created by EruEri on 14/03/2022.
-//
+// /////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                            //
+// This file is part of cithare                                                               //
+// Copyright (C) 2023 Yves Ndiaye                                                             //
+//                                                                                            //
+// cithare is free software: you can redistribute it and/or modify it under the terms         //
+// of the GNU General Public License as published by the Free Software Foundation,            //
+// either version 3 of the License, or (at your option) any later version.                    //
+//                                                                                            //
+// cithare is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;       //
+// without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR           //
+// PURPOSE.  See the GNU General Public License for more details.                             //
+// You should have received a copy of the GNU General Public License along with ciathare.     //
+// If not, see <http://www.gnu.org/licenses/>.                                                //
+//                                                                                            //
+// /////////////////////////////////////////////////////////////////////////////////////////////
 
 import Foundation
-import Cncurses
 
-#if canImport(CryptoKit)
+#if os(macOS)
 import CryptoKit
 #else
 import Crypto
@@ -150,59 +159,31 @@ class Password : Codable {
         self.password = password
     }
     
-    func toCPassword() -> c_password {
-        let websitePtr = UnsafeMutableBufferPointer<CChar>.allocate(capacity: self.website.utf8CString.count)
-        self.website.utf8CString.enumerated().forEach { index, ascii in
-            websitePtr.baseAddress?.advanced(by: index).pointee = ascii
-        }
-        
-        let username = self.username ?? ""
-
-        let userPtr = UnsafeMutableBufferPointer<CChar>.allocate(capacity: username.utf8CString.count)
-        username.utf8CString.enumerated().forEach { index, ascii in
-            userPtr.baseAddress?.advanced(by: index).pointee = ascii
-        }
-        
-        let mail = self.mail ?? ""
-        let mailPtr = UnsafeMutableBufferPointer<CChar>.allocate(capacity: mail.utf8CString.count)
-        mail.utf8CString.enumerated().forEach { index, ascii in
-            mailPtr.baseAddress?.advanced(by: index).pointee = ascii
-        }
-        
-        let passwordPtr = UnsafeMutableBufferPointer<CChar>.allocate(capacity: self.password.utf8CString.count)
-        self.password.utf8CString.enumerated().forEach { index, ascii in
-            passwordPtr.baseAddress?.advanced(by: index).pointee = ascii
-        }
-        
-        
-        return .init(
-            website: websitePtr.baseAddress,
-            username: userPtr.baseAddress,
-            mail: mailPtr.baseAddress,
-            password: passwordPtr.baseAddress)
-    }
-    
     fileprivate func lineDescription(_ webLineLen : Int, _ userLineLen : Int,
                                      _ mailLineLen : Int, _ passLineLen : Int) -> String {
+        
         var content = ""
+        content.append(Terminal.VERTICAL_LINE)
         content.append(self.website)
         content.append(addSpace(webLineLen - self.website.count))
-        content.append("|")
+        content.append(Terminal.VERTICAL_LINE)
         
         content.append(self.username ?? "")
         content.append(addSpace(userLineLen - (self.username?.count ?? 0) ))
-        content.append("|")
+        content.append(Terminal.VERTICAL_LINE)
         
         content.append(self.mail ?? "")
         content.append(addSpace(mailLineLen - (self.mail?.count ?? 0) ))
-        content.append("|")
+        content.append(Terminal.VERTICAL_LINE)
         
         content.append(self.password)
         content.append(addSpace(passLineLen - self.password.count))
-        content.append("|\n")
-        (0..<webLineLen + mailLineLen + userLineLen + passLineLen + 4).forEach { _ in content.append("-") }
-        content.append("\n")
+        content.append(Terminal.VERTICAL_LINE)
         return content
+    }
+    
+    func hidePassword() {
+        self.password = self.password.map { _ in "*" }.joined()
     }
 }
 
@@ -228,6 +209,40 @@ enum ChangeStatus {
 
 class PasswordManager : Codable, CustomStringConvertible {
     
+    private static let VERTICAL_LINE = "│"
+    
+    private var websiteSquareLength: Int {
+        let website = "website"
+        return passwords.reduce(0, { result, pass in
+            max(result, pass.website.count)
+        }).max(y: website.count)
+    }
+    
+    private var usernameSquareLength: Int {
+        let username = "username"
+        return self.passwords.reduce(0, { result, pass in
+            max(result, pass.username?.count ?? -1)
+        }).max(y: username.count)
+    }
+    private var mailSquareLength: Int {
+        let mail = "mail"
+        return self.passwords.reduce(0, { result, pass in
+            result >= pass.mail?.count ?? 0 ? result : pass.mail!.count
+        }).max(y: mail.count)
+    }
+    
+    private var passwordSquareLength: Int {
+        let password = "password"
+        return self.passwords.reduce(0, { result, pass in
+             result > pass.password.count ? result : pass.password.count
+        }).max(y: password.count)
+    }
+    
+    private var lineWidth: Int {
+        websiteSquareLength + mailSquareLength + usernameSquareLength + passwordSquareLength + 5
+    }
+
+    
     init(formFormated formated: String) {
         self.passwords = formated
             .split(separator: "\n")
@@ -244,14 +259,95 @@ class PasswordManager : Codable, CustomStringConvertible {
             }
     }
     
-    func toCPasswordManager() -> c_password_manager {
-        let c_pass_ptr = UnsafeMutableBufferPointer<c_password>.allocate(capacity: MemoryLayout<c_password>.size * self.count)
-        self.passwords.enumerated().forEach { index, pass in
-            c_pass_ptr.baseAddress?.advanced(by: index).pointee = pass.toCPassword()
+    public func display(showPassword: Bool, displayTime: UInt?) {
+        var terminal = Terminal(width: lineWidth)
+        let thread = Thread(block: {
+            self.draw(showPassword: showPassword, terminal: &terminal, killThread: true)
+        })
+        
+        switch displayTime {
+        case .none:
+            self.draw(showPassword: showPassword, terminal: &terminal, killThread: false)
+        case .some(let dt):
+            thread.start()
+            sleep( UInt32(dt) )
+            thread.cancel()
+            terminal.endWindow()
+            
         }
-        return .init(passwords: c_pass_ptr.baseAddress,
-              count: self.passwords.count)
     }
+    
+    private func draw(showPassword: Bool, terminal: inout Terminal, killThread: Bool = false) {
+        let passwordString = self.passwords.map { pass -> String in
+            if !showPassword { pass.hidePassword() }
+            return pass.lineDescription(websiteSquareLength, usernameSquareLength, mailSquareLength, passwordSquareLength)
+        }
+        let count = passwordString.count
+        
+        var running = true
+        
+        var oldSize = terminal.size
+        terminal.startWindow()
+        var currentLine = 0
+        var oldLine = ( (count - 1) % count ).abs
+        var horizontalOffset = 0
+        var horizontalOldValue = 0
+        
+        func increaseHorizontalOffset(){
+            if horizontalOffset + lineWidth > (terminal.size.column) && horizontalOffset < (terminal.size.column - lineWidth).abs {
+                horizontalOffset += 1
+            }
+        }
+        
+        func decreaseHorizontalOffset() {
+            if horizontalOffset > 0 {
+                horizontalOffset -= 1
+            }
+        }
+
+        while running {
+            let newSize = terminal.size
+            var input: UInt8 = 0
+            
+            if oldLine != currentLine {
+                oldLine = currentLine
+                terminal.width = min(lineWidth, newSize.column)
+                terminal.drawItem(items: passwordString, verticalOffset: currentLine, horizontalOffset: horizontalOffset, title: "cithare")
+            } else if oldSize != newSize {
+                oldSize = newSize
+                terminal.width = min(lineWidth, newSize.column)
+                terminal.drawItem(items: passwordString, verticalOffset: currentLine, horizontalOffset: horizontalOffset, title: "cithare")
+            } else if horizontalOffset != horizontalOldValue {
+                horizontalOldValue = horizontalOffset
+                terminal.width = min(lineWidth, newSize.column)
+                terminal.drawItem(items: passwordString, verticalOffset: currentLine, horizontalOffset: horizontalOffset, title: "cithare")
+            }
+            
+            read(STDIN_FILENO, &input , 1)
+            switch input {
+            case Character("q").asciiValue!:
+                running = false
+            case  Character("i").asciiValue!:
+                currentLine = (currentLine + 1) % count
+            case Character("k").asciiValue!:
+                currentLine = ((currentLine - 1) % count).abs
+            case Character("l").asciiValue!:
+                increaseHorizontalOffset()
+            case Character("j").asciiValue!:
+                decreaseHorizontalOffset()
+            default:
+                break
+            }
+        }
+        
+        terminal.endWindow()
+        
+        if killThread {
+            exit(0)
+        }
+        
+    }
+    
     
     var description: String {
         
@@ -259,92 +355,37 @@ class PasswordManager : Codable, CustomStringConvertible {
         let username = "username"
         let mail = "mail"
         let password = "password"
-        let websiteSquareLenght = self.passwords.reduce(0, { result, pass in
-            max(result, pass.website.count)
-        }).max(y: website.count)
-        let usernameSquareLenght = self.passwords.reduce(0, { result, pass in
-            max(result, pass.username?.count ?? -1)
-        }).max(y: username.count)
-        
-        let mailSquareLenght = self.passwords.reduce(0, { result, pass in
-            result >= pass.mail?.count ?? 0 ? result : pass.mail!.count
-        }).max(y: mail.count)
-        
-        let passwordSquareLenght = self.passwords.reduce(0, { result, pass in
-             result > pass.password.count ? result : pass.password.count
-        }).max(y: password.count)
         
         var content = ""
         
         content.append(website)
-        content.append(addSpace(websiteSquareLenght - website.count))
+        content.append(addSpace(websiteSquareLength - website.count))
         content.append("|")
         
         content.append(username)
-        content.append(addSpace(usernameSquareLenght - (username.count) ))
+        content.append(addSpace(usernameSquareLength - (username.count) ))
         content.append("|")
         
         content.append(mail)
-        content.append(addSpace(mailSquareLenght - (mail.count) ))
+        content.append(addSpace(mailSquareLength - (mail.count) ))
         content.append("|")
         
         content.append(password)
-        content.append(addSpace(passwordSquareLenght - password.count))
+        content.append(addSpace(passwordSquareLength - password.count))
         content.append("|\n")
         
         
-        (0..<websiteSquareLenght + mailSquareLenght + usernameSquareLenght + passwordSquareLenght + 4).forEach { _ in content.append("-") }
+        for _ in (0..<websiteSquareLength + mailSquareLength + usernameSquareLength + passwordSquareLength + 4) {
+            content.append("-")
+        }
         content.append("\n")
         
         self.passwords.forEach { pass in
-            content.append( pass.lineDescription(websiteSquareLenght, usernameSquareLenght, mailSquareLenght, passwordSquareLenght) )
+            content.append(
+                pass.lineDescription(websiteSquareLength, usernameSquareLength, mailSquareLength, passwordSquareLength)
+            )
         }
         return content
-    }
-    
-    func ncursesDisplay(displayTime : Int?) {
-        
-        let website = "website"
-        let username = "username"
-        let mail = "mail"
-        let password = "password"
-        let websiteSquareLenght = self.passwords.reduce(0, { result, pass in
-            max(result, pass.website.count)
-        }).max(y: website.count)
-        let usernameSquareLenght = self.passwords.reduce(0, { result, pass in
-            max(result, pass.username?.count ?? -1)
-        }).max(y: username.count)
-        
-        let mailSquareLenght = self.passwords.reduce(0, { result, pass in
-            result >= pass.mail?.count ?? 0 ? result : pass.mail!.count
-        }).max(y: mail.count)
-        
-        let passwordSquareLenght = self.passwords.reduce(0, { result, pass in
-             result > pass.password.count ? result : pass.password.count
-        }).max(y: password.count)
-
-        let cPasswordManager = self.toCPasswordManager()
-        display_ncurses(cPasswordManager,
-                        websiteSquareLenght,
-                        usernameSquareLenght,
-                        mailSquareLenght,
-                        passwordSquareLenght,
-                        displayTime ?? -1)
-        for index in 0..<cPasswordManager.count {
-            let cPassword = cPasswordManager.passwords.advanced(by: index)
-            cPassword.pointee.password.resetMemory()
-            cPassword.pointee.password.deallocate()
-
-            cPassword.pointee.website.resetMemory()
-            cPassword.pointee.website.deallocate()
-
-            cPassword.pointee.username.resetMemory()
-            cPassword.pointee.username.deallocate()
-
-            cPassword.pointee.mail.resetMemory()
-            cPassword.pointee.mail.deallocate()
-        }
-        cPasswordManager.passwords.deallocate()
     }
     
     var passwords : [Password]
@@ -377,7 +418,7 @@ class PasswordManager : Codable, CustomStringConvertible {
     }
     
     func findIndex(predicate: (Password) -> Bool) -> Int? {
-        for (i ,password) in passwords.enumerated() {
+        for (i, password) in passwords.enumerated() {
             if predicate(password) { return i }
         }
         return nil
@@ -436,29 +477,3 @@ struct PasswordManagerEncryption {
     }
     
 }
-
-
-
-//if #available(macOS 12.0, *) {
-//    let masterKey = "MasterPass"
-//    func addPassword(){
-//        let passWord : Password = .init(website: "Nautiljon.fr", username: "Hello", mail: "you@me.mail", password: "Trymefirst123")
-//        let pm = PasswordManager()
-//        pm.addPassword(password: passWord)
-//        let pse = PasswordManagerEncryption.init()
-//        print(pse.encrypt(passwordManager: pm, masterKey: masterKey, atPath: appFileFullPath))
-//    }
-//
-//    func decrypt(){
-//        let pse = PasswordManagerEncryption.init()
-//        switch pse.decrypt(masterKey: masterKey, atPath: appFileFullPath) {
-//        case .failure(let error):
-//            print("\(error)")
-//        case .success(let passwordManager):
-//            print("\(passwordManager)")
-//        }
-//    }
-//
-//    addPassword()
-//    decrypt()
-//}
