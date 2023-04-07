@@ -181,6 +181,10 @@ class Password : Codable {
         content.append(Terminal.VERTICAL_LINE)
         return content
     }
+    
+    func hidePassword() {
+        self.password = self.password.map { _ in "*" }.joined()
+    }
 }
 
 enum EncryptionError : Error {
@@ -255,15 +259,15 @@ class PasswordManager : Codable, CustomStringConvertible {
             }
     }
     
-    public func display(displayTime: UInt?) {
+    public func display(showPassword: Bool, displayTime: UInt?) {
         var terminal = Terminal(width: lineWidth)
         let thread = Thread(block: {
-            self.draw(terminal: &terminal, killThread: true)
+            self.draw(showPassword: showPassword, terminal: &terminal, killThread: true)
         })
         
         switch displayTime {
         case .none:
-            self.draw(terminal: &terminal, killThread: false)
+            self.draw(showPassword: showPassword, terminal: &terminal, killThread: false)
         case .some(let dt):
             thread.start()
             sleep( UInt32(dt) )
@@ -273,9 +277,10 @@ class PasswordManager : Codable, CustomStringConvertible {
         }
     }
     
-    private func draw(terminal: inout Terminal, killThread: Bool = false) {
+    private func draw(showPassword: Bool, terminal: inout Terminal, killThread: Bool = false) {
         let passwordString = self.passwords.map { pass in
-            pass.lineDescription(websiteSquareLength, usernameSquareLength, mailSquareLength, passwordSquareLength)
+            if !showPassword { pass.hidePassword() }
+            return pass.lineDescription(websiteSquareLength, usernameSquareLength, mailSquareLength, passwordSquareLength)
         }
         let count = passwordString.count
         

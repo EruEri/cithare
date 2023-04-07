@@ -358,6 +358,9 @@ extension Cithare {
 
         @Option(name: [.short, .long], help: "Output file")
         var output: String?
+        
+        @Flag(name: [.long], help: "Display plain password")
+        var showPassword = false
 
         #if os(macOS)
         @Flag(name: [.short, .long], help: "Write the password into the pasteboard")
@@ -431,7 +434,7 @@ extension Cithare {
                         throw ExitCode.init(1)
                     }
                 }
-                passwordManager.display(displayTime: self.displayTime.map { n in UInt(n) } )
+                passwordManager.display(showPassword: self.showPassword, displayTime: self.displayTime.map { n in UInt(n) } )
             }
         }
     }
