@@ -127,7 +127,7 @@ struct Terminal {
     
     private func drawFirstLine(title: String = "") {
         drawString(Self.UPPER_LEFT_CORNER, flush: false)
-        for n in 0..<(self._width - 1) {
+        for n in 0..<(self._width - 2) {
             let currentCharIndex = n
             
             if currentCharIndex < title.count {

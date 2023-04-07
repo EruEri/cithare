@@ -235,7 +235,7 @@ class PasswordManager : Codable, CustomStringConvertible {
     }
     
     private var lineWidth: Int {
-        websiteSquareLength + mailSquareLength + usernameSquareLength + passwordSquareLength + 4
+        websiteSquareLength + mailSquareLength + usernameSquareLength + passwordSquareLength + 5
     }
 
     
