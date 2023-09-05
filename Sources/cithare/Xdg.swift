@@ -37,7 +37,7 @@ struct Xdg {
     private let XDG_ENV_CACHE_HOME = "XDG_CACHE_HOME"
     private let XDG_ENV_STATE_HOME = "XDG_STATE_HOME"
     
-    public var xdgDataDirectory : String? {
+    public var xdgDataDirectory : URL? {
         let defaultPath =
             FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".local")
@@ -48,10 +48,10 @@ struct Xdg {
         
         var url = URL(string: path)
         url = url?.appendingPathComponent(appName)
-        return url?.absoluteString
+        return url
     }
     
-    public var xdgCacheDirectory : String? {
+    public var xdgCacheDirectory : URL? {
         let defaultPath =
             FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".cache")
@@ -61,10 +61,10 @@ struct Xdg {
         
         var url = URL(string: path)
         url = url?.appendingPathComponent(appName)
-        return url?.absoluteString
+        return url
     }
     
-    public var xdgConfigDirectory : String? {
+    public var xdgConfigDirectory : URL? {
         let defaultPath =
             FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".config")
@@ -74,10 +74,10 @@ struct Xdg {
         
         var url = URL(string: path)
         url = url?.appendingPathComponent(appName)
-        return url?.absoluteString
+        return url
     }
     
-    public var xdgStateDirectory : String? {
+    public var xdgStateDirectory : URL? {
         let defaultPath =
             FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".local")
@@ -88,11 +88,11 @@ struct Xdg {
         
         var url = URL(string: path)
         url = url?.appendingPathComponent(appName)
-        return url?.absoluteString
+        return url
     }
     
-    func getDirectory(_ kind : XdgDirectory) -> Result<String, XdgError> {
-        var path : String?
+    func getDirectory(_ kind : XdgDirectory) -> Result<URL, XdgError> {
+        var path : URL?
         switch kind {
         case .xdgCacheDirectory:
             path = self.xdgCacheDirectory
@@ -108,11 +108,11 @@ struct Xdg {
             return .failure(.xdgInvalidUrl(kind))
         }
         
-        if FileManager.default.fileExists(atPath: path) {
+        if FileManager.default.fileExists(atPath: path.path) {
             return .success(path)
         }
         
-        let success: ()? = try? FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
+        let success: ()? = try? FileManager.default.createDirectory(atPath: path.path, withIntermediateDirectories: true)
         
         guard let _ = success else {
             return .failure(.xdgUnableToCreateDir(kind))

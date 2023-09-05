@@ -28,15 +28,10 @@ enum CithareConfig {
         let dataDirectory : XdgDirectory = .xdgDataDirectory
         return Self.CITHARE_DIRS
             .getDirectory(dataDirectory)
-            .flatMap { path in
-                var url = URL(string: path)
-                return url.map { url in
-                    url.appendingPathComponent(Self.PASSWORD_FILE)
-                }.fold(none: .failure(XdgError.xdgInvalidUrl(dataDirectory)),
-                    some: { url in
-                    let exist = FileManager.default.fileExists(atPath: url.absoluteString)
-                    return .success(exist)
-                })
+            .map { url in
+                let url2 = url.appendingPathComponent(Self.PASSWORD_FILE)
+                let exist = FileManager.default.fileExists(atPath: url2.path)
+                return exist
             }
     }
-} 
+}

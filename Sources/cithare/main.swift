@@ -23,20 +23,20 @@ import ArgumentParser
 import AppKit
 #endif
 
-let APPDIR : String = ".cithare"
-let PASSFILE : String = ".citharecf"
-var appFileFullPath : String {
-    let fileManager = FileManager.default
-    var home : URL
-    if #available(macOS 10.12, *) {
-        home = fileManager.homeDirectoryForCurrentUser
-    } else {
-        home = URL(fileURLWithPath: NSHomeDirectory())
-    }
-    home.appendPathComponent(APPDIR)
-    home.appendPathComponent(PASSFILE)
-    return home.path
-}
+//let APPDIR : String = ".cithare"
+//let PASSFILE : String = ".citharecf"
+//var appFileFullPath : String {
+//    let fileManager = FileManager.default
+//    var home : URL
+//    if #available(macOS 10.12, *) {
+//        home = fileManager.homeDirectoryForCurrentUser
+//    } else {
+//        home = URL(fileURLWithPath: NSHomeDirectory())
+//    }
+//    home.appendPathComponent(APPDIR)
+//    home.appendPathComponent(PASSFILE)
+//    return home.path
+//}
 
 
 struct Cithare : ParsableCommand {
@@ -61,20 +61,17 @@ struct Cithare : ParsableCommand {
         guard let pass1 = pass_opt else { throw (Cithare.Add.AddError.nullPasswordPointer) }
         let passWord = String(cString: pass1)
         let result = confirmPassword("Enter the new master password : ", "Confirm the new master password : ")
-        switch result {
-        case .failure(let error):
-            throw error
-        case .success(_):
-            break
-        }
-        
-        let new_pass = try! result.get()
+
+        // Since we want to throw if error then ```get``` is fine
+        let newPassword = try result.get();
         let passEncryp = PasswordManagerEncryption.init()
-        switch passEncryp.decrypt(masterKey: passWord, atPath: appFileFullPath) {
+        var cithareDataDir = try CithareConfig.CITHARE_DIRS.getDirectory(.xdgDataDirectory).get()
+        cithareDataDir = cithareDataDir.appendingPathComponent(CithareConfig.PASSWORD_FILE)
+        switch passEncryp.decrypt(masterKey: passWord, atPath: cithareDataDir.path) {
         case .failure(let error):
             throw error
         case .success(let password):
-            switch passEncryp.encrypt(passwordManager: password, masterKey: new_pass, atPath: appFileFullPath) {
+            switch passEncryp.encrypt(passwordManager: password, masterKey: newPassword, atPath: cithareDataDir.path) {
             case .failure(let error):
                 throw error
             case .success:
@@ -133,7 +130,8 @@ extension Cithare {
             if self.username == nil && self.mail == nil && !self.replace {
                 throw ValidationError("at least --username or --mail should be provided to add")
             }
-            if !FileManager.default.fileExists(atPath: appFileFullPath) {
+            let fileExist = try CithareConfig.isPasswordFileExist().get()
+            if !fileExist {
                 throw ValidationError("app file not found.\nYou should run 'init' command")
             }
             if let lenght = autoGen, lenght < 8 {
@@ -154,43 +152,40 @@ extension Cithare {
         }
         
         func run() throws {
+            let p1 = try getPass().get()
+            let masterKeywordOpt = getpass("Enter the master password : ")
+            guard let masterKey = masterKeywordOpt else { throw Self.AddError.nullPasswordPointer }
+            let passwordEncrypter = PasswordManagerEncryption.init()
+            let sMasterkey = String(cString: masterKey)
             
-            switch getPass() {
-            case .failure(let error):
-                throw error
-            case .success(let p1):
-                let masterKeywordOpt = getpass("Enter the master password : ")
-                guard let masterKey = masterKeywordOpt else { throw Self.AddError.nullPasswordPointer }
-                let passwordEncrypter = PasswordManagerEncryption.init()
-                let sMasterkey = String(cString: masterKey)
-                switch passwordEncrypter.decrypt(masterKey: sMasterkey, atPath: appFileFullPath) {
-                case .failure(let error):
-                    throw error
-                case .success(let passwordManager):
-                    
-                    if self.replace {
-                        switch passwordManager.replaceOrAdd(website: self.webSite, password: p1, username: self.username, mail: self.mail){
-                        case .replaced:
-                            print("Password replaced")
-                        case .added:
-                            print("Password added")
-                        }
-                    } else {
-                        let password = Password.init(website: self.webSite, username: self.username, mail: self.mail, password: p1)
-                        passwordManager.addPassword(password: password)
-                    }
-                    
-                    switch passwordEncrypter.encrypt(passwordManager: passwordManager, masterKey: sMasterkey, atPath: appFileFullPath) {
-                    case .failure(let error):
-                        print("\(error)")
-                        return
-                    case .success:
-                        print("Password saved")
-                        return
-                    }
+            var cithareDataDir = try CithareConfig.CITHARE_DIRS.getDirectory(.xdgDataDirectory).get()
+            cithareDataDir = cithareDataDir.appendingPathComponent(CithareConfig.PASSWORD_FILE)
+            let cithareFilePath = cithareDataDir.path
+            let passwordManager = try passwordEncrypter.decrypt(masterKey: sMasterkey, atPath: cithareFilePath).get()
+                
+            if self.replace {
+                switch passwordManager.replaceOrAdd(website: self.webSite, password: p1, username: self.username, mail: self.mail){
+                case .replaced:
+                    print("Password replaced")
+                case .added:
+                    print("Password added")
                 }
-
+            } else {
+                let password = Password.init(website: self.webSite, username: self.username, mail: self.mail, password: p1)
+                passwordManager.addPassword(password: password)
             }
+            
+            switch passwordEncrypter.encrypt(passwordManager: passwordManager, masterKey: sMasterkey, atPath: cithareFilePath) {
+            case .failure(let error):
+                print("\(error)")
+                return
+            case .success:
+                print("Password saved")
+                return
+            }
+            
+
+            
         }
     }
     
@@ -215,7 +210,13 @@ extension Cithare {
             let passwordEncrypter = PasswordManagerEncryption.init()
             let sMasterkey = String(cString: masterKey)
             
-            switch passwordEncrypter.decrypt(masterKey: sMasterkey, atPath: appFileFullPath) {
+            var cithareDataDir = try CithareConfig.CITHARE_DIRS.getDirectory(.xdgDataDirectory).get()
+            cithareDataDir = cithareDataDir.appendingPathComponent(CithareConfig.PASSWORD_FILE)
+            let cithareFilePath = cithareDataDir.path
+            
+            
+            
+            switch passwordEncrypter.decrypt(masterKey: sMasterkey, atPath: cithareFilePath) {
             case .failure(let error):
                 throw error
             case .success(let passwordManager):
@@ -225,7 +226,7 @@ extension Cithare {
                     if response {
                        
                         passwordManager.passwords.removeAll()
-                        switch passwordEncrypter.encrypt(passwordManager: passwordManager, masterKey: sMasterkey, atPath: appFileFullPath) {
+                        switch passwordEncrypter.encrypt(passwordManager: passwordManager, masterKey: sMasterkey, atPath: cithareFilePath) {
                         case .failure(let error):
                             print("\(error)")
                             return
@@ -243,7 +244,7 @@ extension Cithare {
                         print("No website matching")
                         throw ExitCode(1)
                     }
-                    switch passwordEncrypter.encrypt(passwordManager: passwordManager, masterKey: sMasterkey, atPath: appFileFullPath) {
+                    switch passwordEncrypter.encrypt(passwordManager: passwordManager, masterKey: sMasterkey, atPath: cithareFilePath) {
                     case .failure(let error):
                         print("\(error)")
                         return
@@ -284,16 +285,12 @@ extension Cithare {
         
         func run() throws {
             
-            let cithareDataDir : String
-            switch CithareConfig.CITHARE_DIRS.getDirectory(.xdgDataDirectory) {
-            case .failure(let e):
-                throw e
-            case .success(let dataDir):
-                cithareDataDir = dataDir
-            }
+            
+            var cithareDataDir = try CithareConfig.CITHARE_DIRS.getDirectory(.xdgDataDirectory).get()
+            cithareDataDir = cithareDataDir.appendingPathComponent(CithareConfig.PASSWORD_FILE)
+            let cithareFilePath = cithareDataDir.path
+            
             let fileManager = FileManager.default
-            var cithareUrl = URL(string: cithareDataDir)!
-            cithareUrl = cithareUrl.appendingPathComponent(CithareConfig.PASSWORD_FILE)
             
             let fileExist = try CithareConfig.isPasswordFileExist().get()
             
@@ -304,7 +301,7 @@ extension Cithare {
                 throw Self.InitError.alreadyInitialized
             }
 
-            let isCreated = fileManager.createFile(atPath: cithareUrl.path, contents: nil, attributes: nil)
+            let isCreated = fileManager.createFile(atPath: cithareFilePath, contents: nil, attributes: nil)
             if !isCreated {
                 throw Self.InitError.unableToCreateFile
             } else {
@@ -330,7 +327,7 @@ extension Cithare {
                 }
                 
                 let passwordManagerEncryption =  PasswordManagerEncryption.init()
-                switch passwordManagerEncryption.encrypt(passwordManager: try passwordManager, masterKey: master, atPath: cithareUrl.path){
+                switch passwordManagerEncryption.encrypt(passwordManager: try passwordManager, masterKey: master, atPath: cithareFilePath){
                 case .failure(let error):
                     throw error
                 case .success:
@@ -382,64 +379,66 @@ extension Cithare {
             guard let masterKey = masterKeywordOpt else { throw Cithare.Add.AddError.nullPasswordPointer }
             let passwordEncrypter = PasswordManagerEncryption.init()
             let sMasterkey = String(cString: masterKey)
-            switch passwordEncrypter.decrypt(masterKey: sMasterkey, atPath: appFileFullPath) {
-            case .failure(let error):
-                print("\(error)")
-                return
-            case .success(let passwordManager):
-                if let website = self.website {
-                    if regex {
-                        let regexR = try NSRegularExpression(pattern: website, options: .caseInsensitive)
-                        passwordManager.filter { password in
-                            let matches = regexR.matches(in: password.website, range: .init(location: 0, length: password.website.count))
-                            return !matches.isEmpty
-                        }
-                        
-                        if passwordManager.count == 0 {
-                            print("No websites matched")
-                            throw ExitCode.init(1)
-                        } else if passwordManager.count >= 2  {
-                            print("To much websites matched\nConflict between:\n  \(passwordManager.passwords.map({ $0.website }).joined(separator: "\n  "))")
-                            throw ExitCode.init(1)
-                        }
-                    } else {
-                        passwordManager.filter { pw in pw.website == website }
-                    }
-                }
-                #if os(macOS)
-                if paste {
-                    guard let password = passwordManager.passwords.first else {
-                        print("Cannot find a password for the given website")
-                        throw ExitCode.init(1)
-                    }
-                    
-                    NSPasteboard.general.clearContents()
-                    
-                    guard NSPasteboard.general.setString(password.password, forType: .string) else {
-                        print("Unable to write into the pasteboard")
-                        throw ExitCode.init(1)
-                    }
-                    
-                    if regex {
-                        print("For : \(password.website)")
-                    }
-                    print("Password successfully written in pasteboard")
-                    return
+            
+            var cithareDataDir = try CithareConfig.CITHARE_DIRS.getDirectory(.xdgDataDirectory).get()
+            cithareDataDir = cithareDataDir.appendingPathComponent(CithareConfig.PASSWORD_FILE)
+            let cithareFilePath = cithareDataDir.path
+            
+            let passwordManager = try passwordEncrypter.decrypt(masterKey: sMasterkey, atPath: cithareFilePath).get()
 
-                }
-                #endif
-                if let output = output {
-                    let fileManager = FileManager.default
-                    if fileManager.createFile(atPath: output, contents: passwordManager.description.data(using: .utf8)) {
-                        print("Successfully written at \(output)")
-                        return
-                    } else {
-                        print("Unable to create the output file")
+            if let website = self.website {
+                if regex {
+                    let regexR = try NSRegularExpression(pattern: website, options: .caseInsensitive)
+                    passwordManager.filter { password in
+                        let matches = regexR.matches(in: password.website, range: .init(location: 0, length: password.website.count))
+                        return !matches.isEmpty
+                    }
+                    
+                    if passwordManager.count == 0 {
+                        print("No websites matched")
+                        throw ExitCode.init(1)
+                    } else if passwordManager.count >= 2  {
+                        print("To much websites matched\nConflict between:\n  \(passwordManager.passwords.map({ $0.website }).joined(separator: "\n  "))")
                         throw ExitCode.init(1)
                     }
+                } else {
+                    passwordManager.filter { pw in pw.website == website }
                 }
-                passwordManager.display(showPassword: self.showPassword, displayTime: self.displayTime.map { n in UInt(n) } )
             }
+            #if os(macOS)
+            if paste {
+                guard let password = passwordManager.passwords.first else {
+                    print("Cannot find a password for the given website")
+                    throw ExitCode.init(1)
+                }
+                
+                NSPasteboard.general.clearContents()
+                
+                guard NSPasteboard.general.setString(password.password, forType: .string) else {
+                    print("Unable to write into the pasteboard")
+                    throw ExitCode.init(1)
+                }
+                
+                if regex {
+                    print("For : \(password.website)")
+                }
+                print("Password successfully written in pasteboard")
+                return
+
+            }
+            #endif
+            if let output = output {
+                let fileManager = FileManager.default
+                if fileManager.createFile(atPath: output, contents: passwordManager.description.data(using: .utf8)) {
+                    print("Successfully written at \(output)")
+                    return
+                } else {
+                    print("Unable to create the output file")
+                    throw ExitCode.init(1)
+                }
+            }
+            passwordManager.display(showPassword: self.showPassword, displayTime: self.displayTime.map { n in UInt(n) } )
+            
         }
     }
     
