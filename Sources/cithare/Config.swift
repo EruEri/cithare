@@ -22,6 +22,7 @@ enum CithareConfig {
     static let CITHARE_NAME = "cithare"
     static let VERSION = "0.7.0"
     static let PASSWORD_FILE = ".citharecf"
+    static let CITHARE_ENV_SAVE_STATE = "CITHARE_SAVE_STATE"
     static let CITHARE_DIRS = Xdg(appName: CITHARE_NAME)
     
     static func isPasswordFileExist() -> Result<Bool, XdgError> {
@@ -32,6 +33,15 @@ enum CithareConfig {
                 let url2 = url.appendingPathComponent(Self.PASSWORD_FILE)
                 let exist = FileManager.default.fileExists(atPath: url2.path)
                 return exist
+            }
+    }
+    
+    static func shouldSaveState() -> Bool {
+        ProcessInfo.processInfo
+            .environment[Self.CITHARE_ENV_SAVE_STATE]
+            .fold(none: true) { env in
+                let value = env.lowercased()
+                return value == "yes" || value == "1" || value == "true"
             }
     }
 }

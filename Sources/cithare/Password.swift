@@ -445,6 +445,14 @@ class PasswordManager : Codable, CustomStringConvertible {
         return data!
     }
     
+    static func timestamp() -> String {
+        let date = Date()
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH-mm-ss"
+        let format = dateFormatter.string(from: date)
+        return "\(CithareConfig.CITHARE_NAME) \(format)"
+    }
+    
 }
 
 
@@ -462,6 +470,24 @@ struct PasswordManagerEncryption {
         guard let encryptedContent = sealedBox.combined else { return .failure(.unableToCombine) }
         guard let _ = try? encryptedContent.write(to: URL.init(fileURLWithPath: file), options: [.atomic]) else {  return .failure(.unableToWrite) }
         return .success(())
+    }
+    
+    @discardableResult
+    public func saveState(passwordManager : PasswordManager, masterKey : String) -> Result<(), EncryptionError> {
+        guard CithareConfig.shouldSaveState() else {
+            return .success(())
+        }
+        var url : URL
+        switch CithareConfig.CITHARE_DIRS.getDirectory(.xdgStateDirectory) {
+        case .failure(_):
+            return .failure(.unableToWrite)
+        case .success(let surl):
+            url = surl
+        }
+        let filename = passwordManager
+        let format = PasswordManager.timestamp()
+        url = url.appendingPathComponent(format)
+        return self.encrypt(passwordManager: passwordManager, masterKey: masterKey, atPath: url.path)
     }
     
     public func decrypt(masterKey: String, atPath file : String) -> Result<PasswordManager, DecryptionError> {
