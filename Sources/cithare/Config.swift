@@ -17,33 +17,21 @@
 
 import Foundation
 
-extension Int {
+
+enum CithareConfig {
+    static let CITHARE_NAME = "cithare"
+    static let VERSION = "0.7.0"
+    static let PASSWORD_FILE = ".citharecf"
+    static let CITHARE_DIRS = Xdg(appName: CITHARE_NAME)
     
-    public var abs: Self {
-        Swift.abs(self)
-    }
-    
-    
-    public func max(y: Self) -> Self {
-        return Swift.max(self, y)
+    static func isPasswordFileExist() -> Result<Bool, XdgError> {
+        let dataDirectory : XdgDirectory = .xdgDataDirectory
+        return Self.CITHARE_DIRS
+            .getDirectory(dataDirectory)
+            .map { url in
+                let url2 = url.appendingPathComponent(Self.PASSWORD_FILE)
+                let exist = FileManager.default.fileExists(atPath: url2.path)
+                return exist
+            }
     }
 }
-
-extension Optional {
-    
-    func fold<U>(none: U, some: (Wrapped) -> U) -> U {
-        switch self {
-        case .none:
-            return none
-        case .some(let wrapped):
-            return some(wrapped)
-        }
-    }
-}
-
-//extension UnsafeMutablePointer where Pointee == CChar {
-//    func resetMemory(with value: CChar = 0) {
-//        let stringLen = strlen(self)
-//        self.assign(repeating: value, count: stringLen)
-//    }
-//}
