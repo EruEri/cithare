@@ -272,8 +272,8 @@ extension Cithare {
             var passwordManager: PasswordManager {
                 get throws {
                     if let filePath = self.import {
-                        let fileText = try String(contentsOf: .init(fileURLWithPath: filePath), encoding: .utf8)
-                        return .init(formFormated: fileText)
+                        let data = try Data(contentsOf: .init(fileURLWithPath: filePath))
+                        return try JSONDecoder().decode(PasswordManager.self, from: data)
                     } else {
                         return PasswordManager.init()
                     }
@@ -385,7 +385,7 @@ extension Cithare {
             #endif
             if let output = output {
                 let fileManager = FileManager.default
-                if fileManager.createFile(atPath: output, contents: passwordManager.description.data(using: .utf8)) {
+                if fileManager.createFile(atPath: output, contents: passwordManager.data()) {
                     print("Successfully written at \(output)")
                     return
                 } else {

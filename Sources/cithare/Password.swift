@@ -242,21 +242,22 @@ class PasswordManager : Codable, CustomStringConvertible {
     }
 
     
-    init(formFormated formated: String) {
-        self.passwords = formated
-            .split(separator: "\n")
-            .enumerated()
-            .compactMap ({ (index, line) in index != 0 && index.isMultiple(of: 2) ? String(line) : nil  })
-            .compactMap { line -> Password? in
-                let passwordComponents = line.split(separator: "|")
-                guard passwordComponents.count == 4 else { return nil }
-                let website = passwordComponents[0]
-                let username = (passwordComponents[1].contains { !$0.isWhitespace } ? passwordComponents[1] : nil).map(String.init)
-                let mail = (passwordComponents[2].contains { !$0.isWhitespace } ? passwordComponents[2] : nil).map(String.init)
-                let password = passwordComponents[3]
-                return .init(website: String(website), username: username, mail: mail, password: String(password))
-            }
-    }
+//    init(formFormated formated: String) {
+//
+//        self.passwords = formated
+//            .split(separator: "\n")
+//            .enumerated()
+//            .compactMap ({ (index, line) in index != 0 && index.isMultiple(of: 2) ? String(line) : nil  })
+//            .compactMap { line -> Password? in
+//                let passwordComponents = line.split(separator: "|")
+//                guard passwordComponents.count == 4 else { return nil }
+//                let website = passwordComponents[0]
+//                let username = (passwordComponents[1].contains { !$0.isWhitespace } ? passwordComponents[1] : nil).map(String.init)
+//                let mail = (passwordComponents[2].contains { !$0.isWhitespace } ? passwordComponents[2] : nil).map(String.init)
+//                let password = passwordComponents[3]
+//                return .init(website: String(website), username: username, mail: mail, password: String(password))
+//            }
+//    }
     
     public func display(showPassword: Bool, displayTime: UInt?) {
         var terminal = Terminal(width: lineWidth)
@@ -438,7 +439,7 @@ class PasswordManager : Codable, CustomStringConvertible {
         }
     }
     
-    fileprivate func toData() -> Data {
+    func data() -> Data {
         let encoder = JSONEncoder()
         let data = try? encoder.encode(self)
         return data!
@@ -465,7 +466,7 @@ struct PasswordManagerEncryption {
         let derivedKey = HKDF<SHA256>.deriveKey(inputKeyMaterial: key, outputByteCount: 32)
         
         let nonce = AES.GCM.Nonce.init()
-        let data = passwordManager.toData()
+        let data = passwordManager.data()
         guard let sealedBox = try? AES.GCM.seal(data, using: derivedKey, nonce: nonce) else { return .failure(.unableToEncrypt) }
         guard let encryptedContent = sealedBox.combined else { return .failure(.unableToCombine) }
         guard let _ = try? encryptedContent.write(to: URL.init(fileURLWithPath: file), options: [.atomic]) else {  return .failure(.unableToWrite) }

@@ -4,6 +4,7 @@
 - Use XDG Directory Specification
 - Add Changelog
 - Save file before each modification
+- Export/Import from json instead of weird custom string formatted
 
 # 0.7.0
 - Remove ncurses, use manual ascii sequences

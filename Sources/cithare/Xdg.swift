@@ -84,7 +84,7 @@ struct Xdg {
             .appendingPathComponent("state")
             .absoluteString
 
-        let path = ProcessInfo.processInfo.environment[XDG_ENV_CACHE_HOME] ?? defaultPath
+        let path = ProcessInfo.processInfo.environment[XDG_ENV_STATE_HOME] ?? defaultPath
         
         var url = URL(string: path)
         url = url?.appendingPathComponent(appName)
