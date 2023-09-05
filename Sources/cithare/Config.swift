@@ -20,7 +20,7 @@ import Foundation
 
 enum CithareConfig {
     static let CITHARE_NAME = "cithare"
-    static let VERSION = "0.7.0"
+    static let VERSION = "0.8.0"
     static let PASSWORD_FILE = ".citharecf"
     static let CITHARE_ENV_SAVE_STATE = "CITHARE_SAVE_STATE"
     static let CITHARE_DIRS = Xdg(appName: CITHARE_NAME)

@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## [Unreleased]
+## 0.8.0
 - Use XDG Directory Specification
 - Add Changelog
 - Save file before each modification
