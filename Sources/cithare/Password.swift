@@ -449,7 +449,7 @@ class PasswordManager : Codable, CustomStringConvertible {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH-mm-ss"
         let format = dateFormatter.string(from: date)
-        let random = generateRandomPassword(8, true, true)
+        let random = generateRandomPassword(8, true, false)
         return "\(CithareConfig.CITHARE_NAME) \(random) \(format)"
     }
     
