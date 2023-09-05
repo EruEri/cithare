@@ -135,14 +135,14 @@ func addSpace(_ n : Int) -> String {
 
 
 @available(macOS 10.15, *)
-func confirmPassword(_ firstMessage : String, _ confirmMessage : String) -> Result<String, Cithare.Add.AddError> {
+func confirmPassword(_ firstMessage : String, _ confirmMessage : String) -> Result<String, CithareError> {
     let pass_opt  = getpass(firstMessage)
-    guard let pass1 = pass_opt else { return .failure(Cithare.Add.AddError.nullPasswordPointer) }
+    guard let pass1 = pass_opt else { return .failure(.addError(.nullPasswordPointer))  }
     let p1 = String(cString: pass1)
     let pass_opt2 = getpass(confirmMessage)
-    guard let pass2 = pass_opt2 else { return .failure(Cithare.Add.AddError.nullPasswordPointer) }
+    guard let pass2 = pass_opt2 else { return .failure(.addError(.nullPasswordPointer)) }
     let p2 = String(cString: pass2)
-    if p1 != p2 { return .failure(Cithare.Add.AddError.unmatchPassword) }
+    if p1 != p2 { return .failure(.addError(.unmatchPassword)) }
     return .success(p1)
 }
 
