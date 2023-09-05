@@ -81,7 +81,6 @@ func readValidatedInput(_ defaultMessage: String, _ errorMessage: String, _ empt
         case "n", "N":
             return false
         default:
-            print("Error ?")
             print(errorMessage)
             return readValidatedInput(defaultMessage, errorMessage, emptyLineError)
         }
@@ -112,19 +111,19 @@ func isPasswordsatisfying(_ length: UInt, _ useNumber: Bool, _ useSpecialChar: B
     let response = readValidatedInput("Is password satisfying ? [y/n]",
                                       "Wrong Input!\nSelect between [y/n]",
                                       "No Input!\nPlease select a reponse")
-    if response {
-        return pass
-    } else {
-        let shouldKeepTrying = readValidatedInput("Do you want to try again? [y/n]",
-                                                  "Wrong Input!\nSelect between [y/n]",
-                                                  "No Input!\nPlease select a reponse")
-        if shouldKeepTrying {
-            return isPasswordsatisfying(length, useNumber, useSpecialChar)
-        } else {
-            return .none
-        }
-    }
     
+    guard !response else {
+        return pass
+    }
+
+    let shouldKeepTrying = readValidatedInput("Do you want to try again? [y/n]",
+                                              "Wrong Input!\nSelect between [y/n]",
+                                              "No Input!\nPlease select a reponse")
+    if shouldKeepTrying {
+        return isPasswordsatisfying(length, useNumber, useSpecialChar)
+    } else {
+        return .none
+    }
 }
 
 func addSpace(_ n : Int) -> String {
@@ -445,6 +444,15 @@ class PasswordManager : Codable, CustomStringConvertible {
         return data!
     }
     
+    static func timestamp() -> String {
+        let date = Date()
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH-mm-ss"
+        let format = dateFormatter.string(from: date)
+        let random = generateRandomPassword(8, true, false)
+        return "\(CithareConfig.CITHARE_NAME) \(random) \(format)"
+    }
+    
 }
 
 
@@ -462,6 +470,23 @@ struct PasswordManagerEncryption {
         guard let encryptedContent = sealedBox.combined else { return .failure(.unableToCombine) }
         guard let _ = try? encryptedContent.write(to: URL.init(fileURLWithPath: file), options: [.atomic]) else {  return .failure(.unableToWrite) }
         return .success(())
+    }
+    
+    @discardableResult
+    public func saveState(passwordManager : PasswordManager, masterKey : String) -> Result<(), EncryptionError> {
+        guard CithareConfig.shouldSaveState() else {
+            return .success(())
+        }
+        var url : URL
+        switch CithareConfig.CITHARE_DIRS.getDirectory(.xdgStateDirectory) {
+        case .failure(_):
+            return .failure(.unableToWrite)
+        case .success(let surl):
+            url = surl
+        }
+        let format = PasswordManager.timestamp()
+        url = url.appendingPathComponent(format)
+        return self.encrypt(passwordManager: passwordManager, masterKey: masterKey, atPath: url.path)
     }
     
     public func decrypt(masterKey: String, atPath file : String) -> Result<PasswordManager, DecryptionError> {

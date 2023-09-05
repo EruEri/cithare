@@ -23,14 +23,24 @@ import ArgumentParser
 import AppKit
 #endif
 
+let discussion = """
+ENVIRONMENT:
+    \(CithareConfig.CITHARE_ENV_SAVE_STATE): If set to \"NO\", \(CithareConfig.CITHARE_NAME) doesn't save the password file before modification
+"""
+
 struct Cithare : ParsableCommand {
-    static var configuration = CommandConfiguration(version: CithareConfig.VERSION, subcommands: [
-        Cithare.Init.self,
-        Cithare.Add.self,
-        Cithare.Delete.self,
-        Cithare.Show.self,
-        Cithare.GeneratePassword.self
-    ])
+    static var configuration = CommandConfiguration(
+        abstract: "A command-line password manager",
+        discussion: discussion,
+        version: CithareConfig.VERSION,
+        subcommands: [
+            Cithare.Init.self,
+            Cithare.Add.self,
+            Cithare.Delete.self,
+            Cithare.Show.self,
+            Cithare.GeneratePassword.self
+        ]
+    )
     
     @Flag()
     var changeMasterPassword = false
@@ -126,6 +136,8 @@ extension Cithare {
             cithareDataDir = cithareDataDir.appendingPathComponent(CithareConfig.PASSWORD_FILE)
             let cithareFilePath = cithareDataDir.path
             let passwordManager = try passwordEncrypter.decrypt(masterKey: sMasterkey, atPath: cithareFilePath).get()
+            
+            let _ = passwordEncrypter.saveState(passwordManager: passwordManager, masterKey: sMasterkey)
                 
             if self.replace {
                 switch passwordManager.replaceOrAdd(website: self.website, password: p1, username: self.username, mail: self.mail){
@@ -181,6 +193,7 @@ extension Cithare {
             let cithareFilePath = cithareDataDir.path
             
             let passwordManager = try passwordEncrypter.decrypt(masterKey: sMasterkey, atPath: cithareFilePath).get()
+            let _ = passwordEncrypter.saveState(passwordManager: passwordManager, masterKey: sMasterkey)
 
             let oldCount = passwordManager.passwords.count
             
