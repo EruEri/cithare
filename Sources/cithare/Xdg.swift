@@ -21,6 +21,7 @@ enum XdgDirectory {
     case xdgCacheDirectory
     case xdgDataDirectory
     case xdgConfigDirectory
+    case xdgStateDirectory
 }
 
 enum XdgError : Error {
@@ -34,6 +35,7 @@ struct Xdg {
     private let XDG_ENV_DATA_HOME = "XDG_DATA_HOME"
     private let XDG_ENV_CONFIG_HOME = "XDG_CONFIG_HOME"
     private let XDG_ENV_CACHE_HOME = "XDG_CACHE_HOME"
+    private let XDG_ENV_STATE_HOME = "XDG_STATE_HOME"
     
     public var xdgDataDirectory : String? {
         let defaultPath =
@@ -75,6 +77,20 @@ struct Xdg {
         return url?.absoluteString
     }
     
+    public var xdgStateDirectory : String? {
+        let defaultPath =
+            FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".local")
+            .appendingPathComponent("state")
+            .absoluteString
+
+        let path = ProcessInfo.processInfo.environment[XDG_ENV_CACHE_HOME] ?? defaultPath
+        
+        var url = URL(string: path)
+        url = url?.appendingPathComponent(appName)
+        return url?.absoluteString
+    }
+    
     func getDirectory(_ kind : XdgDirectory) -> Result<String, XdgError> {
         var path : String?
         switch kind {
@@ -84,6 +100,8 @@ struct Xdg {
             path = self.xdgDataDirectory
         case .xdgConfigDirectory:
             path = self.xdgConfigDirectory
+        case .xdgStateDirectory:
+            path = self.xdgStateDirectory
         }
         
         guard let path = path else {

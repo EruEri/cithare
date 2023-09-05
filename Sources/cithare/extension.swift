@@ -27,13 +27,23 @@ extension Int {
     public func max(y: Self) -> Self {
         return Swift.max(self, y)
     }
-    
-
 }
 
-extension UnsafeMutablePointer where Pointee == CChar {
-    func resetMemory(with value: CChar = 0) {
-        let stringLen = strlen(self)
-        self.assign(repeating: value, count: stringLen)
+extension Optional {
+    
+    func fold<U>(none: U, some: (Wrapped) -> U) -> U {
+        switch self {
+        case .none:
+            return none
+        case .some(let wrapped):
+            return some(wrapped)
+        }
     }
 }
+
+//extension UnsafeMutablePointer where Pointee == CChar {
+//    func resetMemory(with value: CChar = 0) {
+//        let stringLen = strlen(self)
+//        self.assign(repeating: value, count: stringLen)
+//    }
+//}

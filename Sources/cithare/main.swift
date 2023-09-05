@@ -53,7 +53,7 @@ struct Cithare : ParsableCommand {
     
     func run() throws {
         
-        if !changeMasterPassword {
+        guard changeMasterPassword else {
             return
         }
         
@@ -64,7 +64,7 @@ struct Cithare : ParsableCommand {
         switch result {
         case .failure(let error):
             throw error
-        default:
+        case .success(_):
             break
         }
         
@@ -283,39 +283,41 @@ extension Cithare {
         var `import`: String?
         
         func run() throws {
+            
+            let cithareDataDir : String
+            switch CithareConfig.CITHARE_DIRS.getDirectory(.xdgDataDirectory) {
+            case .failure(let e):
+                throw e
+            case .success(let dataDir):
+                cithareDataDir = dataDir
+            }
             let fileManager = FileManager.default
-            var home : URL = fileManager.homeDirectoryForCurrentUser
-            home.appendPathComponent(APPDIR)
-            if !fileManager.fileExists(atPath: home.path, isDirectory: nil ) {
-                do {
-                    try fileManager.createDirectory(at: home, withIntermediateDirectories: false, attributes: nil)
-                } catch {
-                    throw Self.InitError.unableToCreateDirectory
+            var cithareUrl = URL(string: cithareDataDir)!
+            cithareUrl = cithareUrl.appendingPathComponent(CithareConfig.PASSWORD_FILE)
+            
+            let fileExist = try CithareConfig.isPasswordFileExist().get()
+            
+            guard self.force || !fileExist else {
+                if self.import == nil {
+                    print("cithare already initialized. Use --force the initialization")
                 }
+                throw Self.InitError.alreadyInitialized
             }
-            home.appendPathComponent(PASSFILE)
-            if !self.force {
-                if fileManager.fileExists(atPath: home.path) {
-                    if self.import == nil {
-                        print("cithare already initialized. Use --force the initialization")
-                    }
-                    throw Self.InitError.alreadyInitialized
-                }
-            }
-            let isCreated = fileManager.createFile(atPath: home.path, contents: nil, attributes: nil)
+
+            let isCreated = fileManager.createFile(atPath: cithareUrl.path, contents: nil, attributes: nil)
             if !isCreated {
                 throw Self.InitError.unableToCreateFile
             } else {
                 let confirmPass = confirmPassword("Choose the master password : ", "Confirm the master password : ")
+                let master : String
                 switch confirmPass {
                 case .failure(let error):
                     throw error
-                default:
-                    break
+                case .success(let lmaster):
+                    master = lmaster
                 }
-                let master = try! confirmPass.get()
-                
-                
+
+                            
                 var passwordManager: PasswordManager {
                     get throws {
                         if let filePath = self.import {
@@ -328,7 +330,7 @@ extension Cithare {
                 }
                 
                 let passwordManagerEncryption =  PasswordManagerEncryption.init()
-                switch passwordManagerEncryption.encrypt(passwordManager: try passwordManager, masterKey: master, atPath: home.path){
+                switch passwordManagerEncryption.encrypt(passwordManager: try passwordManager, masterKey: master, atPath: cithareUrl.path){
                 case .failure(let error):
                     throw error
                 case .success:
@@ -406,22 +408,24 @@ extension Cithare {
                 }
                 #if os(macOS)
                 if paste {
-                    if let password = passwordManager.passwords.first {
-                        NSPasteboard.general.clearContents()
-                        if NSPasteboard.general.setString(password.password, forType: .string) {
-                            if regex {
-                                print("For : \(password.website)")
-                            }
-                            print("Password successfully written in pasteboard")
-                            return
-                        } else {
-                            print("Unable to write into the pasteboard")
-                            throw ExitCode.init(1)
-                        }
-                    } else {
+                    guard let password = passwordManager.passwords.first else {
                         print("Cannot find a password for the given website")
                         throw ExitCode.init(1)
                     }
+                    
+                    NSPasteboard.general.clearContents()
+                    
+                    guard NSPasteboard.general.setString(password.password, forType: .string) else {
+                        print("Unable to write into the pasteboard")
+                        throw ExitCode.init(1)
+                    }
+                    
+                    if regex {
+                        print("For : \(password.website)")
+                    }
+                    print("Password successfully written in pasteboard")
+                    return
+
                 }
                 #endif
                 if let output = output {
