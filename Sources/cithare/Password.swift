@@ -81,7 +81,6 @@ func readValidatedInput(_ defaultMessage: String, _ errorMessage: String, _ empt
         case "n", "N":
             return false
         default:
-            print("Error ?")
             print(errorMessage)
             return readValidatedInput(defaultMessage, errorMessage, emptyLineError)
         }
@@ -112,19 +111,19 @@ func isPasswordsatisfying(_ length: UInt, _ useNumber: Bool, _ useSpecialChar: B
     let response = readValidatedInput("Is password satisfying ? [y/n]",
                                       "Wrong Input!\nSelect between [y/n]",
                                       "No Input!\nPlease select a reponse")
-    if response {
-        return pass
-    } else {
-        let shouldKeepTrying = readValidatedInput("Do you want to try again? [y/n]",
-                                                  "Wrong Input!\nSelect between [y/n]",
-                                                  "No Input!\nPlease select a reponse")
-        if shouldKeepTrying {
-            return isPasswordsatisfying(length, useNumber, useSpecialChar)
-        } else {
-            return .none
-        }
-    }
     
+    guard !response else {
+        return pass
+    }
+
+    let shouldKeepTrying = readValidatedInput("Do you want to try again? [y/n]",
+                                              "Wrong Input!\nSelect between [y/n]",
+                                              "No Input!\nPlease select a reponse")
+    if shouldKeepTrying {
+        return isPasswordsatisfying(length, useNumber, useSpecialChar)
+    } else {
+        return .none
+    }
 }
 
 func addSpace(_ n : Int) -> String {
@@ -135,14 +134,14 @@ func addSpace(_ n : Int) -> String {
 
 
 @available(macOS 10.15, *)
-func confirmPassword(_ firstMessage : String, _ confirmMessage : String) -> Result<String, Cithare.Add.AddError> {
+func confirmPassword(_ firstMessage : String, _ confirmMessage : String) -> Result<String, CithareError> {
     let pass_opt  = getpass(firstMessage)
-    guard let pass1 = pass_opt else { return .failure(Cithare.Add.AddError.nullPasswordPointer) }
+    guard let pass1 = pass_opt else { return .failure(.addError(.nullPasswordPointer))  }
     let p1 = String(cString: pass1)
     let pass_opt2 = getpass(confirmMessage)
-    guard let pass2 = pass_opt2 else { return .failure(Cithare.Add.AddError.nullPasswordPointer) }
+    guard let pass2 = pass_opt2 else { return .failure(.addError(.nullPasswordPointer)) }
     let p2 = String(cString: pass2)
-    if p1 != p2 { return .failure(Cithare.Add.AddError.unmatchPassword) }
+    if p1 != p2 { return .failure(.addError(.unmatchPassword)) }
     return .success(p1)
 }
 
@@ -243,21 +242,22 @@ class PasswordManager : Codable, CustomStringConvertible {
     }
 
     
-    init(formFormated formated: String) {
-        self.passwords = formated
-            .split(separator: "\n")
-            .enumerated()
-            .compactMap ({ (index, line) in index != 0 && index.isMultiple(of: 2) ? String(line) : nil  })
-            .compactMap { line -> Password? in
-                let passwordComponents = line.split(separator: "|")
-                guard passwordComponents.count == 4 else { return nil }
-                let website = passwordComponents[0]
-                let username = (passwordComponents[1].contains { !$0.isWhitespace } ? passwordComponents[1] : nil).map(String.init)
-                let mail = (passwordComponents[2].contains { !$0.isWhitespace } ? passwordComponents[2] : nil).map(String.init)
-                let password = passwordComponents[3]
-                return .init(website: String(website), username: username, mail: mail, password: String(password))
-            }
-    }
+//    init(formFormated formated: String) {
+//
+//        self.passwords = formated
+//            .split(separator: "\n")
+//            .enumerated()
+//            .compactMap ({ (index, line) in index != 0 && index.isMultiple(of: 2) ? String(line) : nil  })
+//            .compactMap { line -> Password? in
+//                let passwordComponents = line.split(separator: "|")
+//                guard passwordComponents.count == 4 else { return nil }
+//                let website = passwordComponents[0]
+//                let username = (passwordComponents[1].contains { !$0.isWhitespace } ? passwordComponents[1] : nil).map(String.init)
+//                let mail = (passwordComponents[2].contains { !$0.isWhitespace } ? passwordComponents[2] : nil).map(String.init)
+//                let password = passwordComponents[3]
+//                return .init(website: String(website), username: username, mail: mail, password: String(password))
+//            }
+//    }
     
     public func display(showPassword: Bool, displayTime: UInt?) {
         var terminal = Terminal(width: lineWidth)
@@ -439,10 +439,19 @@ class PasswordManager : Codable, CustomStringConvertible {
         }
     }
     
-    fileprivate func toData() -> Data {
+    func data() -> Data {
         let encoder = JSONEncoder()
         let data = try? encoder.encode(self)
         return data!
+    }
+    
+    static func timestamp() -> String {
+        let date = Date()
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH-mm-ss"
+        let format = dateFormatter.string(from: date)
+        let random = generateRandomPassword(8, true, false)
+        return "\(CithareConfig.CITHARE_NAME) \(random) \(format)"
     }
     
 }
@@ -457,11 +466,28 @@ struct PasswordManagerEncryption {
         let derivedKey = HKDF<SHA256>.deriveKey(inputKeyMaterial: key, outputByteCount: 32)
         
         let nonce = AES.GCM.Nonce.init()
-        let data = passwordManager.toData()
+        let data = passwordManager.data()
         guard let sealedBox = try? AES.GCM.seal(data, using: derivedKey, nonce: nonce) else { return .failure(.unableToEncrypt) }
         guard let encryptedContent = sealedBox.combined else { return .failure(.unableToCombine) }
         guard let _ = try? encryptedContent.write(to: URL.init(fileURLWithPath: file), options: [.atomic]) else {  return .failure(.unableToWrite) }
         return .success(())
+    }
+    
+    @discardableResult
+    public func saveState(passwordManager : PasswordManager, masterKey : String) -> Result<(), EncryptionError> {
+        guard CithareConfig.shouldSaveState() else {
+            return .success(())
+        }
+        var url : URL
+        switch CithareConfig.CITHARE_DIRS.getDirectory(.xdgStateDirectory) {
+        case .failure(_):
+            return .failure(.unableToWrite)
+        case .success(let surl):
+            url = surl
+        }
+        let format = PasswordManager.timestamp()
+        url = url.appendingPathComponent(format)
+        return self.encrypt(passwordManager: passwordManager, masterKey: masterKey, atPath: url.path)
     }
     
     public func decrypt(masterKey: String, atPath file : String) -> Result<PasswordManager, DecryptionError> {

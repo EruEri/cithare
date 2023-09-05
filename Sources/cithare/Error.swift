@@ -15,35 +15,58 @@
 //                                                                                            //
 // /////////////////////////////////////////////////////////////////////////////////////////////
 
-import Foundation
 
-extension Int {
-    
-    public var abs: Self {
-        Swift.abs(self)
+
+enum CithareAddError : Error, CustomStringConvertible {
+    var description: String {
+        switch self {
+        case .nullPasswordPointer:
+            return "Error while entering the password"
+        case .unmatchPassword:
+            return "Passwords don't match"
+        case .wrongMasterPassword:
+            return "Wrong master password"
+        case .alreadyPassforWebsite(let link):
+            return "A password already exists for this site : \(link)"
+        case .passwordNotSatisfying:
+            return "Password Generation failed"
+        }
     }
     
-    
-    public func max(y: Self) -> Self {
-        return Swift.max(self, y)
-    }
+    case nullPasswordPointer
+    case unmatchPassword
+    case wrongMasterPassword
+    case passwordNotSatisfying
+    case alreadyPassforWebsite(String)
 }
 
-extension Optional {
-    
-    func fold<U>(none: U, some: (Wrapped) -> U) -> U {
+enum CithareInitError : Error, CustomStringConvertible {
+    var description: String {
         switch self {
-        case .none:
-            return none
-        case .some(let wrapped):
-            return some(wrapped)
+        case .unableToCreateDirectory:
+            return "Unable to create the app dir at path :"
+        case .unableToCreateFile:
+            return "Unable to create app file"
+        case .alreadyInitialized:
+            return "Cithare is already initialized"
+        }
+    }
+    case unableToCreateDirectory
+    case unableToCreateFile
+    case alreadyInitialized
+}
+
+enum CithareError : Error, CustomStringConvertible {
+    case initError(CithareInitError)
+    case addError(CithareAddError)
+    
+    
+    var description: String {
+        switch self {
+        case .initError(let cithareInitError):
+            return cithareInitError.description
+        case .addError(let cithareAddError):
+            return cithareAddError.description
         }
     }
 }
-
-//extension UnsafeMutablePointer where Pointee == CChar {
-//    func resetMemory(with value: CChar = 0) {
-//        let stringLen = strlen(self)
-//        self.assign(repeating: value, count: stringLen)
-//    }
-//}
