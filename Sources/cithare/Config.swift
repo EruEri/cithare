@@ -41,7 +41,7 @@ enum CithareConfig {
             .environment[Self.CITHARE_ENV_SAVE_STATE]
             .fold(none: true) { env in
                 let value = env.lowercased()
-                return value == "yes" || value == "1" || value == "true"
+                return !(value == "no" || value == "0" || value == "false")
             }
     }
 }

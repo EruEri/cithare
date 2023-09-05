@@ -23,8 +23,15 @@ import ArgumentParser
 import AppKit
 #endif
 
+let discussion = """
+ENVIRONMENT:
+    \(CithareConfig.CITHARE_ENV_SAVE_STATE): If set to \"NO\", \(CithareConfig.CITHARE_NAME) doesn't save the password file before modification
+"""
+
 struct Cithare : ParsableCommand {
     static var configuration = CommandConfiguration(
+        abstract: "A command-line password manager",
+        discussion: discussion,
         version: CithareConfig.VERSION,
         subcommands: [
             Cithare.Init.self,

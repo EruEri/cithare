@@ -81,7 +81,6 @@ func readValidatedInput(_ defaultMessage: String, _ errorMessage: String, _ empt
         case "n", "N":
             return false
         default:
-            print("Error ?")
             print(errorMessage)
             return readValidatedInput(defaultMessage, errorMessage, emptyLineError)
         }
@@ -112,19 +111,19 @@ func isPasswordsatisfying(_ length: UInt, _ useNumber: Bool, _ useSpecialChar: B
     let response = readValidatedInput("Is password satisfying ? [y/n]",
                                       "Wrong Input!\nSelect between [y/n]",
                                       "No Input!\nPlease select a reponse")
-    if response {
-        return pass
-    } else {
-        let shouldKeepTrying = readValidatedInput("Do you want to try again? [y/n]",
-                                                  "Wrong Input!\nSelect between [y/n]",
-                                                  "No Input!\nPlease select a reponse")
-        if shouldKeepTrying {
-            return isPasswordsatisfying(length, useNumber, useSpecialChar)
-        } else {
-            return .none
-        }
-    }
     
+    guard !response else {
+        return pass
+    }
+
+    let shouldKeepTrying = readValidatedInput("Do you want to try again? [y/n]",
+                                              "Wrong Input!\nSelect between [y/n]",
+                                              "No Input!\nPlease select a reponse")
+    if shouldKeepTrying {
+        return isPasswordsatisfying(length, useNumber, useSpecialChar)
+    } else {
+        return .none
+    }
 }
 
 func addSpace(_ n : Int) -> String {
@@ -450,7 +449,8 @@ class PasswordManager : Codable, CustomStringConvertible {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH-mm-ss"
         let format = dateFormatter.string(from: date)
-        return "\(CithareConfig.CITHARE_NAME) \(format)"
+        let random = generateRandomPassword(8, true, true)
+        return "\(CithareConfig.CITHARE_NAME) \(random) \(format)"
     }
     
 }
@@ -484,7 +484,6 @@ struct PasswordManagerEncryption {
         case .success(let surl):
             url = surl
         }
-        let filename = passwordManager
         let format = PasswordManager.timestamp()
         url = url.appendingPathComponent(format)
         return self.encrypt(passwordManager: passwordManager, masterKey: masterKey, atPath: url.path)
